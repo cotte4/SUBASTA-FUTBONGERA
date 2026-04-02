@@ -1,0 +1,62 @@
+import type { Line, Player, PricingTable } from '../types/domain';
+
+export const pricingTable: PricingTable = {
+  GK: { S: 18, A: 12, B: 8, C: 5 },
+  DEF: { S: 16, A: 11, B: 7, C: 4 },
+  MID: { S: 18, A: 13, B: 8, C: 5 },
+  FWD: { S: 22, A: 16, B: 10, C: 6 },
+};
+
+export const floorPriceByLine: Record<Line, number> = {
+  GK: 5,
+  DEF: 4,
+  MID: 5,
+  FWD: 6,
+};
+
+export const samplePlayers: Player[] = [
+  {
+    id: 'arg-emi-martinez',
+    name: 'Emiliano Martinez',
+    country: 'Argentina',
+    countryCode: 'AR',
+    photo: '/players/arg-emi-martinez.png',
+    line: 'GK',
+    subPosition: 'GK',
+    tier: 'S',
+    basePrice: 18,
+  },
+  {
+    id: 'fra-saliba',
+    name: 'William Saliba',
+    country: 'France',
+    countryCode: 'FR',
+    photo: '/players/fra-saliba.png',
+    line: 'DEF',
+    subPosition: 'CB',
+    tier: 'A',
+    basePrice: 11,
+  },
+  {
+    id: 'esp-pedri',
+    name: 'Pedri',
+    country: 'Spain',
+    countryCode: 'ES',
+    photo: '/players/esp-pedri.png',
+    line: 'MID',
+    subPosition: 'CM',
+    tier: 'S',
+    basePrice: 18,
+  },
+  {
+    id: 'arg-messi',
+    name: 'Lionel Messi',
+    country: 'Argentina',
+    countryCode: 'AR',
+    photo: '/players/arg-messi.png',
+    line: 'FWD',
+    subPosition: 'RW',
+    tier: 'S',
+    basePrice: 22,
+  },
+];
