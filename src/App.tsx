@@ -1,123 +1,160 @@
-import { useReducer } from 'react';
-import { PhaseCard } from './components/PhaseCard';
-import { StatusPill } from './components/StatusPill';
-import { pricingTable, samplePlayers } from './data/players';
+import { useEffect, useReducer, useState } from 'react';
+import { allPlayers, pricingTable } from './data/players';
+import { AuctionScreen } from './features/auction/AuctionScreen';
+import { ResultsScreen } from './features/results/ResultsScreen';
+import { HomeScreen } from './features/setup/HomeScreen';
+import { SetupScreen } from './features/setup/SetupScreen';
+import { ReassignModal } from './features/teams/ReassignModal';
+import { createRoomCode, createSnapshot } from './lib/game';
+import { listSavedRoomCodes, loadGameSnapshot, saveGameSnapshot } from './lib/storage';
 import { initialGameState } from './state/game-initial-state';
 import { gameReducer } from './state/game-reducer';
+import type { Line } from './types/domain';
 
-const phases = [
-  'Home y reanudacion local',
-  'Setup de participantes y presupuesto',
-  'Subasta single-screen',
-  'Vista de equipos 4-3-3',
-  'Pantalla final para debate',
-];
+type ReassignDraft = {
+  participantId: string;
+  line: Line;
+  slot: string;
+} | null;
 
 export function App() {
-  const [state] = useReducer(gameReducer, initialGameState);
+  const [state, dispatch] = useReducer(gameReducer, initialGameState);
+  const [reassignDraft, setReassignDraft] = useState<ReassignDraft>(null);
+
+  useEffect(() => {
+    if (state.phase === 'auction' || state.phase === 'results') {
+      saveGameSnapshot(createSnapshot(state));
+    }
+  }, [state]);
+
+  const savedRooms = listSavedRoomCodes();
+  const participantForModal = reassignDraft
+    ? state.participants.find((entry) => entry.id === reassignDraft.participantId) ?? null
+    : null;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#17443b,_#081411_40%,_#040706_75%)] text-stone-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-6 py-10 lg:px-10">
-        <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-black/30 p-8 shadow-2xl backdrop-blur">
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusPill label="Build-ready MVP" />
-            <StatusPill label="Modo garantizado" tone="gold" />
-            <StatusPill label="Vite + React + Tailwind" tone="green" />
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-[0.35em] text-emerald-300/80">Subasta Futbolera</p>
+            <h1 className="mt-2 text-2xl font-black uppercase sm:text-3xl">Single-screen fantasy auction</h1>
           </div>
-          <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-            <div className="space-y-4">
-              <p className="text-sm uppercase tracking-[0.35em] text-emerald-300/80">
-                Subasta Futbolera
-              </p>
-              <h1 className="max-w-3xl text-4xl font-black uppercase leading-none text-balance sm:text-5xl">
-                Base inicial lista para construir el juego de la subasta.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-stone-300">
-                El proyecto arranca desde cero con la estructura del PRD, pricing por tiers,
-                dataset estatico y estado centralizado. La proxima iteracion ya puede entrar a
-                implementar el flujo real de setup y auction.
-              </p>
-            </div>
-            <section className="grid gap-3 rounded-[1.5rem] border border-emerald-400/15 bg-emerald-300/10 p-5">
-              <p className="text-xs uppercase tracking-[0.3em] text-emerald-200/75">Snapshot</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Metric label="Phase" value={state.phase} />
-                <Metric label="Room code" value={state.roomCode} />
-                <Metric label="Players loaded" value={String(samplePlayers.length)} />
-                <Metric label="Default budget" value={`${state.settings.initialBudget}M`} />
-              </div>
-            </section>
+          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-stone-300">
+            {Object.keys(pricingTable).length} lineas - {allPlayers.length} jugadores seed
           </div>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1fr_1fr]">
-          <article className="rounded-[1.75rem] border border-white/10 bg-white/5 p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-400">Pricing MVP</p>
-            <h2 className="mt-3 text-2xl font-bold">Tabla de tiers</h2>
-            <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
-              <table className="min-w-full border-collapse text-left text-sm">
-                <thead className="bg-white/5 text-stone-300">
-                  <tr>
-                    <th className="px-4 py-3">Linea</th>
-                    <th className="px-4 py-3">S</th>
-                    <th className="px-4 py-3">A</th>
-                    <th className="px-4 py-3">B</th>
-                    <th className="px-4 py-3">C</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(pricingTable).map(([line, tiers]) => (
-                    <tr key={line} className="border-t border-white/10">
-                      <td className="px-4 py-3 font-semibold">{line}</td>
-                      <td className="px-4 py-3">{tiers.S}M</td>
-                      <td className="px-4 py-3">{tiers.A}M</td>
-                      <td className="px-4 py-3">{tiers.B}M</td>
-                      <td className="px-4 py-3">{tiers.C}M</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </article>
+        {state.phase === 'home' ? (
+          <HomeScreen
+            roomCodeInput={state.setup.roomCodeInput}
+            savedRooms={savedRooms}
+            errorMessage={state.errorMessage}
+            onNewGame={() => {
+              setReassignDraft(null);
+              dispatch({ type: 'SET_PHASE', payload: 'setup' });
+            }}
+            onRoomCodeChange={(value) =>
+              dispatch({ type: 'UPDATE_SETUP', payload: { roomCodeInput: value.toUpperCase() } })
+            }
+            onResume={() => {
+              const snapshot = loadGameSnapshot(state.setup.roomCodeInput);
+              if (!snapshot) {
+                dispatch({
+                  type: 'SET_ERROR',
+                  payload: 'No encontre una partida con ese codigo en este navegador.',
+                });
+                return;
+              }
 
-          <article className="rounded-[1.75rem] border border-white/10 bg-white/5 p-6">
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-400">Sample dataset</p>
-            <h2 className="mt-3 text-2xl font-bold">Jugadores semilla</h2>
-            <div className="mt-5 grid gap-3">
-              {samplePlayers.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
-                >
-                  <div>
-                    <p className="font-semibold">{player.name}</p>
-                    <p className="text-sm text-stone-400">
-                      {player.country} · {player.line} · {player.subPosition}
-                    </p>
-                  </div>
-                  <StatusPill label={`${player.tier} · ${player.basePrice}M`} tone="green" />
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
+              setReassignDraft(null);
+              dispatch({ type: 'LOAD_GAME', payload: snapshot });
+            }}
+          />
+        ) : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          {phases.map((phase, index) => (
-            <PhaseCard key={phase} step={index + 1} title={phase} />
-          ))}
-        </section>
+        {state.phase === 'setup' ? (
+          <SetupScreen
+            setup={state.setup}
+            onBack={() => {
+              setReassignDraft(null);
+              dispatch({ type: 'RESET_TO_HOME' });
+            }}
+            onStart={() => {
+              setReassignDraft(null);
+              dispatch({
+                type: 'START_GAME',
+                payload: { roomCode: createRoomCode(), players: allPlayers },
+              });
+            }}
+            onUpdate={(value) => dispatch({ type: 'UPDATE_SETUP', payload: value })}
+            onNameChange={(index, value) =>
+              dispatch({ type: 'UPDATE_PARTICIPANT_NAME', payload: { index, value } })
+            }
+          />
+        ) : null}
+
+        {state.phase === 'auction' ? (
+          <AuctionScreen
+            state={state}
+            onPlaceBid={(participantId) => dispatch({ type: 'PLACE_BID', payload: { participantId } })}
+            onSkip={() => dispatch({ type: 'SKIP_PLAYER' })}
+            onSell={() => {
+              setReassignDraft(null);
+              dispatch({ type: 'OPEN_ASSIGNMENT' });
+            }}
+            onUndo={() => {
+              setReassignDraft(null);
+              dispatch({ type: 'UNDO_LAST_ACTION' });
+            }}
+            onReset={() => {
+              setReassignDraft(null);
+              dispatch({ type: 'RESET_TO_HOME' });
+            }}
+            onCancelAssignment={() => dispatch({ type: 'CANCEL_ASSIGNMENT' })}
+            onConfirmAssignment={(slot) =>
+              dispatch({ type: 'CONFIRM_ASSIGNMENT', payload: { slot } })
+            }
+            onPickTeamSlot={(payload) => {
+              if (!state.pendingAssignment) {
+                setReassignDraft(payload);
+              }
+            }}
+          />
+        ) : null}
+
+        {state.phase === 'results' ? (
+          <ResultsScreen
+            state={state}
+            onReset={() => {
+              setReassignDraft(null);
+              dispatch({ type: 'RESET_TO_HOME' });
+            }}
+            onPickTeamSlot={(payload) => setReassignDraft(payload)}
+          />
+        ) : null}
       </div>
-    </main>
-  );
-}
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-      <p className="text-xs uppercase tracking-[0.25em] text-stone-400">{label}</p>
-      <p className="mt-2 text-lg font-bold text-white">{value}</p>
-    </div>
+      {participantForModal && reassignDraft ? (
+        <ReassignModal
+          participant={participantForModal}
+          line={reassignDraft.line}
+          fromSlot={reassignDraft.slot}
+          onClose={() => setReassignDraft(null)}
+          onConfirm={(toSlot) => {
+            dispatch({
+              type: 'REASSIGN_TEAM_SLOT',
+              payload: {
+                participantId: reassignDraft.participantId,
+                line: reassignDraft.line,
+                fromSlot: reassignDraft.slot,
+                toSlot,
+              },
+            });
+            setReassignDraft(null);
+          }}
+        />
+      ) : null}
+    </main>
   );
 }

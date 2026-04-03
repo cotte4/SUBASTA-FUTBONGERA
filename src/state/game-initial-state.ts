@@ -1,11 +1,22 @@
 import type { GameState } from '../types/state';
 
+export const defaultSetupDraft = {
+  participantCount: 4,
+  names: ['Jugador 1', 'Jugador 2', 'Jugador 3', 'Jugador 4', 'Jugador 5', 'Jugador 6'],
+  initialBudget: 150,
+  bidIncrement: 1,
+  roomCodeInput: '',
+};
+
 export const initialGameState: GameState = {
   phase: 'home',
-  roomCode: 'AB3K',
-  settings: {
-    participantCount: 4,
-    initialBudget: 150,
-    bidIncrement: 1,
-  },
+  roomCode: '',
+  setup: defaultSetupDraft,
+  players: {},
+  participants: [],
+  auction: null,
+  pendingAssignment: null,
+  lastUndoState: null,
+  savedAt: null,
+  errorMessage: null,
 };
