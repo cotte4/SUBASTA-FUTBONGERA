@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 import {
   canParticipantBid,
@@ -5,6 +6,7 @@ import {
   getBidBlockReason,
   getCurrentPlayer,
   getLineProgress,
+  getNextBidAmount,
   getSkipBlockReason,
 } from '../../lib/game';
 import type { Line } from '../../types/domain';
@@ -14,7 +16,7 @@ import { TeamsBoard } from '../teams/TeamsBoard';
 
 type AuctionScreenProps = {
   state: GameState;
-  onPlaceBid: (participantId: string) => void;
+  onPlaceBid: (participantId: string, amount?: number) => void;
   onSkip: () => void;
   onSell: () => void;
   onUndo: () => void;
@@ -35,11 +37,16 @@ export function AuctionScreen({
   onConfirmAssignment,
   onPickTeamSlot,
 }: AuctionScreenProps) {
+  const [fixedBidInput, setFixedBidInput] = useState('');
   const currentPlayer = getCurrentPlayer(state);
   const canSkip = canSkipCurrentPlayer(state);
   const skipReason = getSkipBlockReason(state);
   const leader = state.participants.find((participant) => participant.id === state.auction?.currentLeaderId);
   const progress = state.auction ? getLineProgress(state, state.auction.currentLine) : null;
+  const minimumBid = getNextBidAmount(state);
+  const fixedBidAmount =
+    fixedBidInput.trim() === '' || Number.isNaN(Number(fixedBidInput)) ? null : Math.floor(Number(fixedBidInput));
+  const hasManualBid = fixedBidAmount !== null && fixedBidAmount !== minimumBid;
 
   if (!state.auction || !currentPlayer) {
     return (
@@ -77,10 +84,14 @@ export function AuctionScreen({
                     </p>
                   </div>
                   <div className="rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-right">
-                    <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/75">Puja actual</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/75">
+                      {leader ? 'Puja actual' : 'Apertura minima'}
+                    </p>
                     <p className="mt-1 text-4xl font-black text-white">{state.auction.currentBid}M</p>
                     <p className="mt-1 text-sm text-stone-300">
-                      {leader ? `La tiene ${leader.name}` : 'Esperando primera puja'}
+                      {leader
+                        ? `La tiene ${leader.name}`
+                        : 'Se ajusta segun el presupuesto garantizado disponible'}
                     </p>
                   </div>
                 </div>
@@ -98,6 +109,33 @@ export function AuctionScreen({
                     detail={`${state.auction.lineQueues[state.auction.currentLine].length} jugadores vivos`}
                   />
                 </div>
+
+                <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
+                  <div className="flex flex-wrap items-end gap-4">
+                    <label className="flex-1">
+                      <span className="text-xs uppercase tracking-[0.25em] text-stone-400">Oferta fija</span>
+                      <input
+                        type="number"
+                        min={minimumBid}
+                        step={1}
+                        value={fixedBidInput}
+                        placeholder={String(minimumBid)}
+                        onChange={(event) => setFixedBidInput(event.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
+                      />
+                    </label>
+                    <div className="min-w-[220px] text-sm text-stone-400">
+                      <p>Minimo actual: {minimumBid}M.</p>
+                      <p>Deja ese valor para seguir con el incremento normal o cargá uno mayor para saltar varios pasos.</p>
+                    </div>
+                  </div>
+                  {state.auction.currentBid < currentPlayer.basePrice ? (
+                    <p className="mt-3 text-sm text-amber-100/90">
+                      La apertura baja desde {currentPlayer.basePrice}M a {state.auction.currentBid}M porque nadie
+                      puede superar ese monto sin romper el modo garantizado.
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -105,14 +143,18 @@ export function AuctionScreen({
               {state.participants.map((participant) => {
                 const enabled = !state.pendingAssignment && canParticipantBid(state, participant.id);
                 const disabledReason = getBidBlockReason(state, participant.id);
+                const fixedBidEnabled =
+                  hasManualBid &&
+                  !state.pendingAssignment &&
+                  canParticipantBid(state, participant.id, fixedBidAmount ?? undefined);
+                const fixedBidReason = hasManualBid
+                  ? getBidBlockReason(state, participant.id, fixedBidAmount ?? undefined)
+                  : null;
 
                 return (
-                  <button
+                  <div
                     key={participant.id}
-                    type="button"
-                    disabled={!enabled}
-                    onClick={() => onPlaceBid(participant.id)}
-                    className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-left transition enabled:hover:border-emerald-300/40 enabled:hover:bg-emerald-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-left"
                   >
                     <p className="text-xs uppercase tracking-[0.25em] text-stone-400">Pujar</p>
                     <p className="mt-3 text-2xl font-bold text-white">{participant.name}</p>
@@ -120,7 +162,32 @@ export function AuctionScreen({
                     <p className="mt-3 text-xs text-stone-500">
                       {enabled ? 'Puede ofertar en esta linea.' : disabledReason}
                     </p>
-                  </button>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={!enabled}
+                        onClick={() => onPlaceBid(participant.id)}
+                        className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-emerald-100 transition enabled:hover:border-emerald-300/40 enabled:hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Pujar {minimumBid}M
+                      </button>
+                      {hasManualBid ? (
+                        <button
+                          type="button"
+                          disabled={!fixedBidEnabled}
+                          onClick={() => onPlaceBid(participant.id, fixedBidAmount ?? undefined)}
+                          className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white transition enabled:hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Ofertar {fixedBidAmount}M
+                        </button>
+                      ) : null}
+                    </div>
+                    {hasManualBid ? (
+                      <p className="mt-3 text-xs text-stone-500">
+                        {fixedBidEnabled ? 'Oferta fija disponible.' : fixedBidReason}
+                      </p>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

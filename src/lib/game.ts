@@ -79,28 +79,11 @@ export function getNextBidAmount(state: GameState | GameSnapshot) {
   return state.auction.currentLeaderId ? state.auction.currentBid + state.setup.bidIncrement : state.auction.currentBid;
 }
 
-export function canParticipantBid(state: GameState | GameSnapshot, participantId: string) {
-  if (!state.auction) {
-    return false;
-  }
-
-  const participant = state.participants.find((entry) => entry.id === participantId);
-  if (!participant) {
-    return false;
-  }
-
-  const line = state.auction.currentLine;
-  const nextBid = getNextBidAmount(state);
-  const affordableCap = getParticipantAffordableCap(state, participantId);
-
-  if (!participant.team[line].some((slot) => slot.playerId === null)) {
-    return false;
-  }
-
-  return affordableCap >= nextBid;
+export function canParticipantBid(state: GameState | GameSnapshot, participantId: string, requestedAmount?: number) {
+  return getBidBlockReason(state, participantId, requestedAmount) === null;
 }
 
-export function getBidBlockReason(state: GameState | GameSnapshot, participantId: string) {
+export function getBidBlockReason(state: GameState | GameSnapshot, participantId: string, requestedAmount?: number) {
   if (!state.auction) {
     return 'La subasta no esta activa.';
   }
@@ -111,11 +94,20 @@ export function getBidBlockReason(state: GameState | GameSnapshot, participantId
   }
 
   const line = state.auction.currentLine;
-  const nextBid = getNextBidAmount(state);
+  const minimumBid = getNextBidAmount(state);
+  const nextBid = normalizeBidAmount(requestedAmount) ?? minimumBid;
   const affordableCap = getParticipantAffordableCap(state, participantId);
 
   if (!participant.team[line].some((slot) => slot.playerId === null)) {
     return `Ya completo todos sus cupos de ${line}.`;
+  }
+
+  if (nextBid < minimumBid) {
+    return `La oferta minima es ${minimumBid}M.`;
+  }
+
+  if (nextBid <= 0) {
+    return 'Ingresa una oferta valida.';
   }
 
   if (affordableCap < nextBid) {
@@ -287,4 +279,16 @@ function getParticipantAffordableCap(state: GameState | GameSnapshot, participan
   }, 0);
 
   return Math.max(0, participant.budget - reserved);
+}
+
+function normalizeBidAmount(requestedAmount?: number) {
+  if (requestedAmount === undefined) {
+    return null;
+  }
+
+  if (!Number.isFinite(requestedAmount)) {
+    return -1;
+  }
+
+  return Math.floor(requestedAmount);
 }

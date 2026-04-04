@@ -42,7 +42,7 @@ export function SetupScreen({
           <Field label="Presupuesto">
             <input
               type="number"
-              min={50}
+              min={54}
               step={1}
               value={setup.initialBudget}
               onChange={(event) => onUpdate({ initialBudget: Number(event.target.value) })}
@@ -82,6 +82,9 @@ export function SetupScreen({
           <SummaryLine label="Incremento" value={`+${setup.bidIncrement}M`} />
           <SummaryLine label="Objetivo" value="4-3-3 completo" />
         </div>
+        <p className="mt-4 text-sm text-stone-400">
+          El minimo de presupuesto es 54M porque es el piso necesario para completar un 4-3-3 en modo garantizado.
+        </p>
         <div className="mt-8 flex flex-col gap-3">
           <button
             type="button"

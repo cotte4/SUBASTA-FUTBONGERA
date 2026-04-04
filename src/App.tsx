@@ -97,7 +97,9 @@ export function App() {
         {state.phase === 'auction' ? (
           <AuctionScreen
             state={state}
-            onPlaceBid={(participantId) => dispatch({ type: 'PLACE_BID', payload: { participantId } })}
+            onPlaceBid={(participantId, amount) =>
+              dispatch({ type: 'PLACE_BID', payload: { participantId, amount } })
+            }
             onSkip={() => dispatch({ type: 'SKIP_PLAYER' })}
             onSell={() => {
               setReassignDraft(null);

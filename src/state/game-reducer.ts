@@ -57,7 +57,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SET_ERROR':
       return { ...state, errorMessage: action.payload };
     case 'PLACE_BID': {
-      if (!state.auction || state.pendingAssignment || !canParticipantBid(state, action.payload.participantId)) {
+      const bidAmount = action.payload.amount ?? getNextBidAmount(state);
+
+      if (!state.auction || state.pendingAssignment || !canParticipantBid(state, action.payload.participantId, bidAmount)) {
         return state;
       }
 
@@ -66,7 +68,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         lastUndoState: createSnapshot(state),
         auction: {
           ...state.auction,
-          currentBid: getNextBidAmount(state),
+          currentBid: bidAmount,
           currentLeaderId: action.payload.participantId,
         },
         errorMessage: null,

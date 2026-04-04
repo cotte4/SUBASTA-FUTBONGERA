@@ -47,7 +47,7 @@ export type GameAction =
   | { type: 'START_GAME'; payload: { roomCode: string; players: Player[] } }
   | { type: 'LOAD_GAME'; payload: GameSnapshot }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'PLACE_BID'; payload: { participantId: string } }
+  | { type: 'PLACE_BID'; payload: { participantId: string; amount?: number } }
   | { type: 'SKIP_PLAYER' }
   | { type: 'OPEN_ASSIGNMENT' }
   | { type: 'CANCEL_ASSIGNMENT' }
