@@ -38,7 +38,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         setup,
         players: buildPlayersMap(action.payload.players),
         participants: buildParticipants(setup),
-        auction: buildAuction(action.payload.players),
+        auction: buildAuction(action.payload.players, setup.participantCount),
         pendingAssignment: null,
         lastUndoState: null,
         savedAt: null,

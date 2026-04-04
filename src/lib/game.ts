@@ -45,12 +45,12 @@ export function buildParticipants(setup: SetupDraft): Participant[] {
   }));
 }
 
-export function buildAuction(players: Player[]): AuctionState {
+export function buildAuction(players: Player[], participantCount: number): AuctionState {
   const lineQueues = {
-    GK: shuffle(players.filter((player) => player.line === 'GK').map((player) => player.id)),
-    DEF: shuffle(players.filter((player) => player.line === 'DEF').map((player) => player.id)),
-    MID: shuffle(players.filter((player) => player.line === 'MID').map((player) => player.id)),
-    FWD: shuffle(players.filter((player) => player.line === 'FWD').map((player) => player.id)),
+    GK: buildLineQueue(players, 'GK', participantCount),
+    DEF: buildLineQueue(players, 'DEF', participantCount),
+    MID: buildLineQueue(players, 'MID', participantCount),
+    FWD: buildLineQueue(players, 'FWD', participantCount),
   };
 
   return {
@@ -243,6 +243,50 @@ function createSlots(line: Line): TeamSlot[] {
     playerId: null,
     pricePaid: null,
   }));
+}
+
+function buildLineQueue(players: Player[], line: Line, participantCount: number) {
+  const linePlayers = players.filter((player) => player.line === line);
+  const selectedPlayers = getLinePoolByRole(linePlayers, line, participantCount);
+
+  return shuffle(selectedPlayers.map((player) => player.id));
+}
+
+function getLinePoolByRole(players: Player[], line: Line, participantCount: number) {
+  const extraPool = participantCount + 1;
+
+  switch (line) {
+    case 'GK':
+      return takePlayersBySubPositions(players, [{ subPositions: ['GK'], count: extraPool }]);
+    case 'DEF':
+      return takePlayersBySubPositions(players, [
+        { subPositions: ['LB'], count: extraPool },
+        { subPositions: ['CB'], count: extraPool * 2 },
+        { subPositions: ['RB'], count: extraPool },
+      ]);
+    case 'MID':
+      return takePlayersBySubPositions(players, [
+        { subPositions: ['CM', 'CDM'], count: extraPool * 2 },
+        { subPositions: ['CAM'], count: extraPool },
+      ]);
+    case 'FWD':
+      return takePlayersBySubPositions(players, [
+        { subPositions: ['LW'], count: extraPool },
+        { subPositions: ['ST'], count: extraPool },
+        { subPositions: ['RW'], count: extraPool },
+      ]);
+    default:
+      return shuffle(players);
+  }
+}
+
+function takePlayersBySubPositions(
+  players: Player[],
+  rules: Array<{ subPositions: string[]; count: number }>,
+) {
+  return rules.flatMap(({ subPositions, count }) =>
+    shuffle(players.filter((player) => subPositions.includes(player.subPosition))).slice(0, count),
+  );
 }
 
 function shuffle<T>(items: T[]) {
