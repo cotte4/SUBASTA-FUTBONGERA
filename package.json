@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "simulate": "tsx scripts/simulate-auction.ts",
+    "validate:seed": "tsx scripts/validate-seed.ts",
+    "fetch:images": "tsx scripts/fetch-player-images.ts",
     "preview": "vite preview"
   },
   "dependencies": {
