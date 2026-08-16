@@ -1,3 +1,6 @@
+# PRDs — se mantienen locales, nunca se pushean
+docs/PRD-*.md
+
 # Logs
 logs
 *.log
