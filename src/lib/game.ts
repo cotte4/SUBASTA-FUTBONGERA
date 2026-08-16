@@ -8,6 +8,72 @@ export const floorPriceByLine: Record<Line, number> = {
   FWD: 6,
 };
 
+export const MIN_PARTICIPANTS = 4;
+export const MAX_PARTICIPANTS = 6;
+
+/**
+ * Composicion del pool de subasta por sub-rol. La cantidad tomada de cada
+ * regla es `(participantCount + 1) * multiplier`, o sea un jugador de margen
+ * por rol (dos para CB y CM/CDM, que ocupan dos slots por equipo).
+ *
+ * Es la fuente unica: la usan el armado del pool, el validador del seed y el
+ * editor de plantel. Si un sub-rol no llega a su cupo, la partida puede
+ * volverse imposible de completar.
+ */
+export const POOL_RULES: Array<{ line: Line; subPositions: string[]; multiplier: number }> = [
+  { line: 'GK', subPositions: ['GK'], multiplier: 1 },
+  { line: 'DEF', subPositions: ['LB'], multiplier: 1 },
+  { line: 'DEF', subPositions: ['CB'], multiplier: 2 },
+  { line: 'DEF', subPositions: ['RB'], multiplier: 1 },
+  { line: 'MID', subPositions: ['CM', 'CDM'], multiplier: 2 },
+  { line: 'MID', subPositions: ['CAM'], multiplier: 1 },
+  { line: 'FWD', subPositions: ['LW'], multiplier: 1 },
+  { line: 'FWD', subPositions: ['ST'], multiplier: 1 },
+  { line: 'FWD', subPositions: ['RW'], multiplier: 1 },
+];
+
+/** Sub-posiciones aceptadas por linea, derivadas de POOL_RULES. */
+export const VALID_SUB_POSITIONS = LINES.reduce(
+  (acc, line) => {
+    acc[line] = POOL_RULES.filter((rule) => rule.line === line).flatMap((rule) => rule.subPositions);
+    return acc;
+  },
+  {} as Record<Line, string[]>,
+);
+
+export type QuotaEntry = {
+  line: Line;
+  subPositions: string[];
+  label: string;
+  need: number;
+  have: number;
+  ok: boolean;
+};
+
+/**
+ * Cuantos jugadores hace falta tener de cada sub-rol y cuantos hay.
+ * Por defecto evalua el peor caso (la cantidad maxima de participantes).
+ */
+export function getQuotaReport(players: Player[], participantCount = MAX_PARTICIPANTS): QuotaEntry[] {
+  const extraPool = participantCount + 1;
+
+  return POOL_RULES.map((rule) => {
+    const need = extraPool * rule.multiplier;
+    const have = players.filter(
+      (player) => player.line === rule.line && rule.subPositions.includes(player.subPosition),
+    ).length;
+
+    return {
+      line: rule.line,
+      subPositions: rule.subPositions,
+      label: `${rule.line} ${rule.subPositions.join('/')}`,
+      need,
+      have,
+      ok: have >= need,
+    };
+  });
+}
+
 export function createRoomCode() {
   return Math.random().toString(36).toUpperCase().slice(2, 6);
 }
@@ -254,30 +320,16 @@ function buildLineQueue(players: Player[], line: Line, participantCount: number)
 
 function getLinePoolByRole(players: Player[], line: Line, participantCount: number) {
   const extraPool = participantCount + 1;
+  const rules = POOL_RULES.filter((rule) => rule.line === line);
 
-  switch (line) {
-    case 'GK':
-      return takePlayersBySubPositions(players, [{ subPositions: ['GK'], count: extraPool }]);
-    case 'DEF':
-      return takePlayersBySubPositions(players, [
-        { subPositions: ['LB'], count: extraPool },
-        { subPositions: ['CB'], count: extraPool * 2 },
-        { subPositions: ['RB'], count: extraPool },
-      ]);
-    case 'MID':
-      return takePlayersBySubPositions(players, [
-        { subPositions: ['CM', 'CDM'], count: extraPool * 2 },
-        { subPositions: ['CAM'], count: extraPool },
-      ]);
-    case 'FWD':
-      return takePlayersBySubPositions(players, [
-        { subPositions: ['LW'], count: extraPool },
-        { subPositions: ['ST'], count: extraPool },
-        { subPositions: ['RW'], count: extraPool },
-      ]);
-    default:
-      return shuffle(players);
+  if (!rules.length) {
+    return shuffle(players);
   }
+
+  return takePlayersBySubPositions(
+    players,
+    rules.map((rule) => ({ subPositions: rule.subPositions, count: extraPool * rule.multiplier })),
+  );
 }
 
 function takePlayersBySubPositions(

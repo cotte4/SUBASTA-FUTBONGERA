@@ -16,7 +16,9 @@ export function PlayerAvatar({ name, photo, alt, className = '' }: PlayerAvatarP
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('');
 
-  if (failed) {
+  // Un src vacio hace que el browser vuelva a pedir la pagina entera, asi que
+  // los jugadores sin foto van directo a las iniciales.
+  if (failed || !photo.trim()) {
     return (
       <div
         className={`flex items-center justify-center rounded-[1.5rem] bg-[linear-gradient(135deg,_rgba(16,185,129,0.35),_rgba(8,15,12,0.95))] text-xl font-black uppercase text-white ${className}`}

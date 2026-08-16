@@ -4,18 +4,22 @@ type HomeScreenProps = {
   roomCodeInput: string;
   savedRooms: string[];
   errorMessage: string | null;
+  playerCount: number;
   onNewGame: () => void;
   onRoomCodeChange: (value: string) => void;
   onResume: () => void;
+  onEditRoster: () => void;
 };
 
 export function HomeScreen({
   roomCodeInput,
   savedRooms,
   errorMessage,
+  playerCount,
   onNewGame,
   onRoomCodeChange,
   onResume,
+  onEditRoster,
 }: HomeScreenProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -35,13 +39,25 @@ export function HomeScreen({
           El game master controla la puja, todos ven el mismo tablero y la app cuida que la
           partida siempre pueda completarse.
         </p>
-        <button
-          type="button"
-          onClick={onNewGame}
-          className="mt-8 inline-flex rounded-full bg-emerald-300 px-6 py-3 text-sm font-bold uppercase tracking-[0.25em] text-black transition hover:bg-emerald-200"
-        >
-          Nueva partida
-        </button>
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={onNewGame}
+            className="inline-flex rounded-full bg-emerald-300 px-6 py-3 text-sm font-bold uppercase tracking-[0.25em] text-black transition hover:bg-emerald-200"
+          >
+            Nueva partida
+          </button>
+          <button
+            type="button"
+            onClick={onEditRoster}
+            className="inline-flex rounded-full border border-white/15 bg-white/10 px-6 py-3 text-sm font-bold uppercase tracking-[0.25em] text-white transition hover:bg-white/15"
+          >
+            Editar plantel
+          </button>
+          <span className="text-xs uppercase tracking-[0.2em] text-stone-500">
+            {playerCount} jugadores
+          </span>
+        </div>
       </section>
 
       <section className="rounded-[2rem] border border-white/10 bg-white/5 p-8">

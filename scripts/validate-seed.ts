@@ -8,32 +8,14 @@
  * Uso: npm run validate:seed
  */
 import { existsSync } from 'node:fs';
-import { allPlayers } from '../src/data/players';
-import { pricingTable } from '../src/data/players';
-import { LINES, type Line } from '../src/types/domain';
+import { allPlayers, pricingTable } from '../src/data/players';
+import { getQuotaReport, MAX_PARTICIPANTS, VALID_SUB_POSITIONS } from '../src/lib/game';
+import { LINES } from '../src/types/domain';
 
-const VALID_SUBS: Record<Line, string[]> = {
-  GK: ['GK'],
-  DEF: ['LB', 'CB', 'RB'],
-  MID: ['CM', 'CDM', 'CAM'],
-  FWD: ['LW', 'ST', 'RW'],
-};
-
+// Las reglas de cupo viven en src/lib/game.ts (POOL_RULES): son las mismas que
+// usa el armado del pool, asi que no se duplican aca.
+const VALID_SUBS = VALID_SUB_POSITIONS;
 const VALID_TIERS = ['S', 'A', 'B', 'C'];
-const MAX_PARTICIPANTS = 6;
-
-// Cupos que arma getLinePoolByRole() con extraPool = participantCount + 1
-const POOL_RULES: Array<{ line: Line; subs: string[]; multiplier: number }> = [
-  { line: 'GK', subs: ['GK'], multiplier: 1 },
-  { line: 'DEF', subs: ['LB'], multiplier: 1 },
-  { line: 'DEF', subs: ['CB'], multiplier: 2 },
-  { line: 'DEF', subs: ['RB'], multiplier: 1 },
-  { line: 'MID', subs: ['CM', 'CDM'], multiplier: 2 },
-  { line: 'MID', subs: ['CAM'], multiplier: 1 },
-  { line: 'FWD', subs: ['LW'], multiplier: 1 },
-  { line: 'FWD', subs: ['ST'], multiplier: 1 },
-  { line: 'FWD', subs: ['RW'], multiplier: 1 },
-];
 
 const errors: string[] = [];
 const warnings: string[] = [];
@@ -79,22 +61,19 @@ for (const player of allPlayers) {
 // El pool se arma con participantCount + 1 por rol. Si no alcanzan los
 // jugadores de un sub-rol, la linea queda corta y la partida puede volverse
 // imposible de completar.
-const extraPool = MAX_PARTICIPANTS + 1;
 const cupos: string[] = [];
 
-for (const rule of POOL_RULES) {
-  const need = extraPool * rule.multiplier;
-  const have = allPlayers.filter(
-    (p) => p.line === rule.line && rule.subs.includes(p.subPosition),
-  ).length;
-  const label = `${rule.line} ${rule.subs.join('/')}`;
-
-  if (have < need) {
-    errors.push(`Cupo insuficiente en ${label}: necesita ${need} con 6 participantes, hay ${have}`);
-  } else if (have < need + 3) {
-    warnings.push(`Cupo justo en ${label}: ${have} disponibles para ${need} necesarios (margen ${have - need})`);
+for (const entry of getQuotaReport(allPlayers)) {
+  if (!entry.ok) {
+    errors.push(
+      `Cupo insuficiente en ${entry.label}: necesita ${entry.need} con ${MAX_PARTICIPANTS} participantes, hay ${entry.have}`,
+    );
+  } else if (entry.have < entry.need + 3) {
+    warnings.push(
+      `Cupo justo en ${entry.label}: ${entry.have} disponibles para ${entry.need} necesarios (margen ${entry.have - entry.need})`,
+    );
   }
-  cupos.push(`  ${label.padEnd(16)} ${String(have).padStart(3)} / ${need} necesarios`);
+  cupos.push(`  ${entry.label.padEnd(16)} ${String(entry.have).padStart(3)} / ${entry.need} necesarios`);
 }
 
 // --- Reporte ---

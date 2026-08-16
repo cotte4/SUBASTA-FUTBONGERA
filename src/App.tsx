@@ -1,11 +1,13 @@
-import { useEffect, useReducer, useState } from 'react';
-import { allPlayers, pricingTable } from './data/players';
+import { useEffect, useMemo, useReducer, useState } from 'react';
+import { pricingTable } from './data/players';
 import { AuctionScreen } from './features/auction/AuctionScreen';
 import { ResultsScreen } from './features/results/ResultsScreen';
+import { RosterModal } from './features/roster/RosterModal';
 import { HomeScreen } from './features/setup/HomeScreen';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { ReassignModal } from './features/teams/ReassignModal';
 import { createRoomCode, createSnapshot } from './lib/game';
+import { getEffectivePlayers, loadRoster, saveRoster, type Roster } from './lib/roster';
 import { listSavedRoomCodes, loadGameSnapshot, saveGameSnapshot } from './lib/storage';
 import { initialGameState } from './state/game-initial-state';
 import { gameReducer } from './state/game-reducer';
@@ -20,6 +22,11 @@ type ReassignDraft = {
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, initialGameState);
   const [reassignDraft, setReassignDraft] = useState<ReassignDraft>(null);
+  const [roster, setRoster] = useState<Roster>(loadRoster);
+  const [rosterOpen, setRosterOpen] = useState(false);
+
+  // Fuente unica: el plantel con el que se juega se deriva del roster guardado.
+  const effectivePlayers = useMemo(() => getEffectivePlayers(roster), [roster]);
 
   useEffect(() => {
     if (state.phase === 'auction' || state.phase === 'results') {
@@ -41,7 +48,7 @@ export function App() {
             <h1 className="mt-2 text-2xl font-black uppercase sm:text-3xl">Single-screen fantasy auction</h1>
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-stone-300">
-            {Object.keys(pricingTable).length} lineas - {allPlayers.length} jugadores seed
+            {Object.keys(pricingTable).length} lineas - {effectivePlayers.length} jugadores
           </div>
         </header>
 
@@ -50,6 +57,8 @@ export function App() {
             roomCodeInput={state.setup.roomCodeInput}
             savedRooms={savedRooms}
             errorMessage={state.errorMessage}
+            playerCount={effectivePlayers.length}
+            onEditRoster={() => setRosterOpen(true)}
             onNewGame={() => {
               setReassignDraft(null);
               dispatch({ type: 'SET_PHASE', payload: 'setup' });
@@ -84,7 +93,7 @@ export function App() {
               setReassignDraft(null);
               dispatch({
                 type: 'START_GAME',
-                payload: { roomCode: createRoomCode(), players: allPlayers },
+                payload: { roomCode: createRoomCode(), players: effectivePlayers },
               });
             }}
             onUpdate={(value) => dispatch({ type: 'UPDATE_SETUP', payload: value })}
@@ -136,6 +145,17 @@ export function App() {
           />
         ) : null}
       </div>
+
+      {rosterOpen ? (
+        <RosterModal
+          roster={roster}
+          onChange={(next) => {
+            setRoster(next);
+            saveRoster(next);
+          }}
+          onClose={() => setRosterOpen(false)}
+        />
+      ) : null}
 
       {participantForModal && reassignDraft ? (
         <ReassignModal
