@@ -226,13 +226,14 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     }
     case 'SET_PODIUM_SLOT': {
       const { position, participantId } = action.payload;
-      if (position < 0 || position > 2) {
+      // 0-2 son el podio; 3 es el ultimo puesto.
+      if (position < 0 || position > 3) {
         return state;
       }
 
-      // Un participante ocupa un solo escalon: si ya estaba en otro, se muda.
+      // Un participante ocupa un solo lugar: si ya estaba en otro, se muda.
       const podium = [...state.podium];
-      while (podium.length < 3) {
+      while (podium.length < 4) {
         podium.push('');
       }
 

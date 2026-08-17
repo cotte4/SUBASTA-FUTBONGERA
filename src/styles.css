@@ -19,3 +19,56 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* --- Animacion de venta (overlay de 3s al asignar un jugador) --- */
+
+@keyframes sold-backdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* La foto entra desde abajo y se asienta. */
+@keyframes sold-card {
+  0% { opacity: 0; transform: translateY(40px) scale(0.9); }
+  60% { opacity: 1; transform: translateY(-6px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* El sello cae de golpe, como un martillazo. */
+@keyframes sold-stamp {
+  0% { opacity: 0; transform: scale(2.6) rotate(-18deg); }
+  55% { opacity: 1; transform: scale(0.92) rotate(-8deg); }
+  70% { transform: scale(1.06) rotate(-8deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-8deg); }
+}
+
+/* Destello que barre la foto una sola vez. */
+@keyframes sold-shine {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  100% { transform: translateX(220%) skewX(-20deg); }
+}
+
+@keyframes sold-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Cuenta regresiva visible de los 3 segundos. */
+@keyframes sold-timer {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@keyframes sold-glow {
+  0%, 100% { box-shadow: 0 0 60px -10px rgba(16, 185, 129, 0.55); }
+  50% { box-shadow: 0 0 90px 0 rgba(16, 185, 129, 0.8); }
+}
+
+/* Quien pidio menos movimiento ve el overlay igual, pero quieto. */
+@media (prefers-reduced-motion: reduce) {
+  .sold-animated,
+  .sold-animated * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

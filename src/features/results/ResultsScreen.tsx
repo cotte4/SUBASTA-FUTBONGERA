@@ -11,8 +11,13 @@ type ResultsScreenProps = {
   onSetPodium: (position: number, participantId: string | null) => void;
 };
 
-const MEDALS = ['🥇', '🥈', '🥉'];
-const PODIUM_LABELS = ['1°', '2°', '3°'];
+/** Tres trofeos arriba y la berenjena para el que salio ultimo. */
+const PODIUM_SLOTS = [
+  { icon: '🏆', label: '1°', ring: 'border-amber-300/40 bg-amber-300/10', text: 'text-amber-200' },
+  { icon: '🏆', label: '2°', ring: 'border-stone-300/30 bg-stone-300/10', text: 'text-stone-200' },
+  { icon: '🏆', label: '3°', ring: 'border-orange-400/30 bg-orange-400/10', text: 'text-orange-200' },
+  { icon: '🍆', label: 'Último', ring: 'border-purple-400/30 bg-purple-400/10', text: 'text-purple-200' },
+];
 
 export function ResultsScreen({
   state,
@@ -23,7 +28,7 @@ export function ResultsScreen({
 }: ResultsScreenProps) {
   const [logoPickerFor, setLogoPickerFor] = useState<string | null>(null);
 
-  const podium = [0, 1, 2].map((position) => {
+  const podium = [0, 1, 2, 3].map((position) => {
     const id = state.podium[position];
     return id ? (state.participants.find((entry) => entry.id === id) ?? null) : null;
   });
@@ -39,20 +44,20 @@ export function ResultsScreen({
         <h1 className="text-5xl font-black uppercase leading-none">Se acabó</h1>
 
         {/* Podio */}
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {podium.map((participant, position) => (
             <div
               key={position}
-              className={`rounded-[1.5rem] border p-4 ${
-                position === 0
-                  ? 'border-amber-300/30 bg-amber-300/10'
-                  : 'border-white/10 bg-white/5'
-              }`}
+              className={`rounded-[1.5rem] border p-4 ${PODIUM_SLOTS[position].ring}`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl">{MEDALS[position]}</span>
-                <span className="text-xs font-black uppercase tracking-[0.25em] text-stone-400">
-                  {PODIUM_LABELS[position]}
+                <span className={position === 0 ? 'text-4xl' : 'text-2xl'}>
+                  {PODIUM_SLOTS[position].icon}
+                </span>
+                <span
+                  className={`text-xs font-black uppercase tracking-[0.25em] ${PODIUM_SLOTS[position].text}`}
+                >
+                  {PODIUM_SLOTS[position].label}
                 </span>
               </div>
               <select

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { AuctionScreen } from './features/auction/AuctionScreen';
 import { ResultsScreen } from './features/results/ResultsScreen';
+import { SoldOverlay, type SoldFlash } from './features/auction/SoldOverlay';
 import { RosterModal } from './features/roster/RosterModal';
 import { HomeScreen } from './features/setup/HomeScreen';
 import { SetupScreen } from './features/setup/SetupScreen';
@@ -31,6 +32,7 @@ export function App() {
   const [roster, setRoster] = useState<Roster>(initialLoad.roster);
   const [rosterOpen, setRosterOpen] = useState(false);
   const [rosterNote, setRosterNote] = useState<string | null>(initialLoad.note);
+  const [soldFlash, setSoldFlash] = useState<SoldFlash | null>(null);
 
   // Fuente unica: el plantel con el que se juega se deriva del roster guardado.
   const effectivePlayers = useMemo(() => getEffectivePlayers(roster), [roster]);
@@ -124,6 +126,7 @@ export function App() {
             rosterProblem={rosterProblem}
             onBack={() => {
               setReassignDraft(null);
+              setSoldFlash(null);
               dispatch({ type: 'RESET_TO_HOME' });
             }}
             onStart={() => {
@@ -157,12 +160,30 @@ export function App() {
             }}
             onReset={() => {
               setReassignDraft(null);
+              setSoldFlash(null);
               dispatch({ type: 'RESET_TO_HOME' });
             }}
             onCancelAssignment={() => dispatch({ type: 'CANCEL_ASSIGNMENT' })}
-            onConfirmAssignment={(slot) =>
-              dispatch({ type: 'CONFIRM_ASSIGNMENT', payload: { slot } })
-            }
+            onConfirmAssignment={(slot) => {
+              // Los datos de la venta se leen ANTES de despachar: despues el
+              // pendingAssignment ya no existe.
+              const pending = state.pendingAssignment;
+              const player = pending ? state.players[pending.playerId] : null;
+              const buyer = pending
+                ? state.participants.find((entry) => entry.id === pending.participantId)
+                : null;
+
+              dispatch({ type: 'CONFIRM_ASSIGNMENT', payload: { slot } });
+
+              if (pending && player && buyer) {
+                setSoldFlash({
+                  player,
+                  buyerName: buyer.name,
+                  price: pending.pricePaid,
+                  slot,
+                });
+              }
+            }}
             onPickTeamSlot={(payload) => {
               if (!state.pendingAssignment) {
                 setReassignDraft(payload);
@@ -176,6 +197,7 @@ export function App() {
             state={state}
             onReset={() => {
               setReassignDraft(null);
+              setSoldFlash(null);
               dispatch({ type: 'RESET_TO_HOME' });
             }}
             onPickTeamSlot={(payload) => setReassignDraft(payload)}
@@ -186,6 +208,8 @@ export function App() {
           />
         ) : null}
       </div>
+
+      <SoldOverlay flash={soldFlash} onDone={() => setSoldFlash(null)} />
 
       {rosterOpen ? (
         <RosterModal
