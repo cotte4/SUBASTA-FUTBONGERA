@@ -14,7 +14,8 @@ const snapshotSchema = z.object({
     bidIncrement: z.number(),
     // Los campos nuevos llevan default para que las partidas guardadas antes de
     // existir sigan cargando en vez de morir en la validacion.
-    skipLimit: z.number().nullable().default(null),
+    skipsPerRound: z.number().nullable().default(2),
+    poolMargin: z.number().default(2),
     roomCodeInput: z.string(),
   }),
   players: z.record(z.string(), z.any()),

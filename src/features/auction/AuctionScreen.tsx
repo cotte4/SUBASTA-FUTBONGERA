@@ -109,9 +109,11 @@ export function AuctionScreen({
                     detail={`${state.auction.lineQueues[state.auction.currentLine].length} vivos`}
                   />
                   <InfoCard
-                    label="Skips"
+                    label={`Skips ${state.auction.currentLine}`}
                     value={skipsLeft === null ? '∞' : `${skipsLeft}`}
-                    detail={skipsLeft === null ? 'sin tope' : `de ${state.setup.skipLimit}`}
+                    detail={
+                      skipsLeft === null ? 'sin tope' : `de ${state.setup.skipsPerRound} por ronda`
+                    }
                   />
                 </div>
 

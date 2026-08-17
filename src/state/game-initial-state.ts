@@ -5,7 +5,8 @@ export const defaultSetupDraft = {
   names: ['Jugador 1', 'Jugador 2', 'Jugador 3', 'Jugador 4', 'Jugador 5', 'Jugador 6'],
   initialBudget: 150,
   bidIncrement: 1,
-  skipLimit: 5,
+  skipsPerRound: 2,
+  poolMargin: 2,
   roomCodeInput: '',
 };
 

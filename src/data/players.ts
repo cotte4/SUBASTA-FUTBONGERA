@@ -121,6 +121,18 @@ const midfielders = [
   ['paqueta', 'Lucas Paqueta', 'Brazil', 'BR', 'CAM', 'A'],
   ['joelinton', 'Joelinton', 'Brazil', 'BR', 'CM', 'B'],
   ['douglas-luiz', 'Douglas Luiz', 'Brazil', 'BR', 'CDM', 'A'],
+  // CAM: el rol mas ajustado del dataset. Sin estos, subir el margen del pool
+  // deja la linea sin jugadores suficientes.
+  ['de-bruyne', 'Kevin De Bruyne', 'Belgium', 'BE', 'CAM', 'S'],
+  ['odegaard', 'Martin Odegaard', 'Norway', 'NO', 'CAM', 'S'],
+  ['xavi-simons', 'Xavi Simons', 'Netherlands', 'NL', 'CAM', 'S'],
+  ['calhanoglu', 'Hakan Calhanoglu', 'Turkey', 'TR', 'CAM', 'A'],
+  ['arda-guler', 'Arda Guler', 'Turkey', 'TR', 'CAM', 'A'],
+  ['eze', 'Eberechi Eze', 'England', 'GB', 'CAM', 'A'],
+  ['yildiz', 'Kenan Yildiz', 'Turkey', 'TR', 'CAM', 'A'],
+  ['nico-paz', 'Nico Paz', 'Argentina', 'AR', 'CAM', 'A'],
+  ['maddison', 'James Maddison', 'England', 'GB', 'CAM', 'B'],
+  ['brandt', 'Julian Brandt', 'Germany', 'DE', 'CAM', 'B'],
 ] as const;
 
 const forwards = [
@@ -163,6 +175,11 @@ const forwards = [
   ['nunez', 'Darwin Nunez', 'Uruguay', 'UY', 'ST', 'A'],
   ['maxi-araujo', 'Maximiliano Araujo', 'Uruguay', 'UY', 'LW', 'B'],
   ['kramaric', 'Andrej Kramaric', 'Croatia', 'HR', 'ST', 'A'],
+  // RW: el otro rol que se quedaba corto al subir el margen.
+  ['salah', 'Mohamed Salah', 'Egypt', 'EG', 'RW', 'S'],
+  ['chiesa', 'Federico Chiesa', 'Italy', 'IT', 'RW', 'A'],
+  ['kubo', 'Takefusa Kubo', 'Japan', 'JP', 'RW', 'A'],
+  ['lookman', 'Ademola Lookman', 'Nigeria', 'NG', 'RW', 'A'],
 ] as const;
 
 export const allPlayers: Player[] = [

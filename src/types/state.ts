@@ -7,8 +7,10 @@ export type SetupDraft = {
   names: string[];
   initialBudget: number;
   bidIncrement: number;
-  /** Skips que tiene la partida entera. null = sin limite. */
-  skipLimit: number | null;
+  /** Skips compartidos que se renuevan en cada ronda (linea). null = sin limite. */
+  skipsPerRound: number | null;
+  /** Jugadores de sobra por rol en el pool: participantes + este margen. */
+  poolMargin: number;
   roomCodeInput: string;
 };
 
@@ -17,6 +19,7 @@ export type AuctionState = {
   lineQueues: Record<Line, string[]>;
   currentBid: number;
   currentLeaderId: string | null;
+  /** Skips gastados en la ronda actual. Vuelve a cero al cambiar de linea. */
   skipsUsed: number;
 };
 

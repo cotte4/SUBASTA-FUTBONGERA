@@ -31,8 +31,8 @@ const MAX_STEPS = 5000;
  */
 const MINIMAL = process.argv.includes('--minimal');
 
-function trimToQuota(players: Player[], participantCount: number): Player[] {
-  const extraPool = participantCount + 1;
+function trimToQuota(players: Player[], participantCount: number, poolMargin: number): Player[] {
+  const extraPool = participantCount + poolMargin;
 
   return POOL_RULES.flatMap((rule) =>
     players
@@ -49,14 +49,15 @@ for (let run = 1; run <= RUNS; run += 1) {
   const initialBudget = [54, 80, 150, 300][Math.floor(Math.random() * 4)];
   const bidIncrement = [1, 2, 5][Math.floor(Math.random() * 3)];
   // 0 incluido: sin ningun skip la partida tiene que poder terminarse igual.
-  const skipLimit = [0, 1, 3, 5, 15, null][Math.floor(Math.random() * 6)] as number | null;
+  const skipsPerRound = [0, 1, 2, 5, 15, null][Math.floor(Math.random() * 6)] as number | null;
+  const poolMargin = 1 + Math.floor(Math.random() * 5);
 
   let state = apply(initialGameState, { type: 'SET_PHASE', payload: 'setup' });
   state = apply(state, {
     type: 'UPDATE_SETUP',
-    payload: { participantCount, initialBudget, bidIncrement, skipLimit },
+    payload: { participantCount, initialBudget, bidIncrement, skipsPerRound, poolMargin },
   });
-  const pool = MINIMAL ? trimToQuota(allPlayers, participantCount) : allPlayers;
+  const pool = MINIMAL ? trimToQuota(allPlayers, participantCount, poolMargin) : allPlayers;
   state = apply(state, {
     type: 'START_GAME',
     payload: { roomCode: createRoomCode(), players: pool },
@@ -182,7 +183,7 @@ function checkInvariants(state: GameState) {
 }
 
 function describe(state: GameState) {
-  const skips = `${state.auction?.skipsUsed ?? 0}/${state.setup.skipLimit ?? 'inf'}`;
+  const skips = `${state.auction?.skipsUsed ?? 0}/${state.setup.skipsPerRound ?? 'inf'}`;
   const player = getCurrentPlayer(state);
   const teams = state.participants
     .map((p) => `${p.name}=${p.budget}M[${LINES.map((l) => p.team[l].filter((s) => s.playerId).length).join('/')}]`)

@@ -6,7 +6,7 @@ import { RosterModal } from './features/roster/RosterModal';
 import { HomeScreen } from './features/setup/HomeScreen';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { ReassignModal } from './features/teams/ReassignModal';
-import { createRoomCode, createSnapshot } from './lib/game';
+import { createRoomCode, createSnapshot, getLineSupply } from './lib/game';
 import {
   getEffectivePlayers,
   getRosterHealth,
@@ -41,16 +41,41 @@ export function App() {
   // cambios del dataset: si una version nueva saca jugadores de una linea donde
   // el usuario ya habia escondido otros, la suma puede quedar corta. Se revisa
   // antes de empezar, no cuando ya es tarde.
+  // Solo se bloquea si la partida seria imposible de terminar: menos jugadores
+  // que slots en alguna linea. Que falte margen para skipear no justifica
+  // frenar a nadie, asi que eso va como aviso.
   const rosterProblem = useMemo(() => {
-    const broken = getRosterHealth(effectivePlayers).broken;
-    if (!broken.length) {
+    const faltantes = getLineSupply(
+      effectivePlayers,
+      state.setup.participantCount,
+      state.setup.poolMargin,
+    ).filter((entry) => !entry.ok);
+    if (!faltantes.length) {
       return null;
     }
 
-    return `Al plantel le faltan jugadores en ${broken
-      .map((entry) => `${entry.label} (${entry.have} de ${entry.need})`)
+    return `No alcanzan los jugadores para llenar los equipos: ${faltantes
+      .map((entry) => `${entry.line} (${entry.have} para ${entry.slots} puestos)`)
       .join(', ')}. Entrá a "Editar plantel" y devolvé escondidos o agregá jugadores.`;
-  }, [effectivePlayers]);
+  }, [effectivePlayers, state.setup.participantCount, state.setup.poolMargin]);
+
+  const rosterWarning = useMemo(() => {
+    if (rosterProblem) {
+      return null;
+    }
+
+    const flojos = getRosterHealth(
+      effectivePlayers,
+      state.setup.participantCount,
+      state.setup.poolMargin,
+    ).broken;
+
+    return flojos.length
+      ? `Se juega igual, pero con poco margen: ${flojos
+          .map((entry) => `${entry.label} (${entry.have} de ${entry.need})`)
+          .join(', ')}. Bajá "jugadores de sobra" o sumá jugadores si querés más aire para skipear.`
+      : null;
+  }, [rosterProblem, effectivePlayers, state.setup.participantCount, state.setup.poolMargin]);
 
   useEffect(() => {
     if (state.phase === 'auction' || state.phase === 'results') {
@@ -124,6 +149,7 @@ export function App() {
           <SetupScreen
             setup={state.setup}
             rosterProblem={rosterProblem}
+            rosterWarning={rosterWarning}
             onBack={() => {
               setReassignDraft(null);
               setSoldFlash(null);

@@ -301,8 +301,8 @@ export function getRemovalBlockReason(players: Player[], playerId: string): stri
 }
 
 /** Resumen para la UI: que sub-roles estan al limite o rotos. */
-export function getRosterHealth(players: Player[]) {
-  const quotas = getQuotaReport(players);
+export function getRosterHealth(players: Player[], participantCount?: number, poolMargin?: number) {
+  const quotas = getQuotaReport(players, participantCount, poolMargin);
   return {
     quotas,
     broken: quotas.filter((entry) => !entry.ok),

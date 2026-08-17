@@ -49,6 +49,46 @@ export const VALID_SUB_POSITIONS = LINES.reduce(
   {} as Record<Line, string[]>,
 );
 
+export type LineSupply = {
+  line: Line;
+  /** Slots de esa linea que hay que llenar entre todos. */
+  slots: number;
+  have: number;
+  ok: boolean;
+};
+
+/**
+ * Minimo duro: cuantos jugadores entrarian de verdad al pool de cada linea
+ * contra los slots que hay que llenar.
+ *
+ * No alcanza con contar los jugadores de la linea: el pool se arma por sub-rol
+ * y cada regla tiene tope. Diez zagueros no cubren los laterales, y un CB de
+ * mas no entra si el cupo de CB ya esta lleno. Por eso se suma, rol por rol, lo
+ * que realmente se tomaria.
+ *
+ * Si esto no se cumple la partida es imposible y hay que frenarla. Que falte
+ * margen sobre esto (el cupo de POOL_RULES) solo quita aire para skipear.
+ */
+export function getLineSupply(
+  players: Player[],
+  participantCount: number,
+  poolMargin = DEFAULT_POOL_MARGIN,
+): LineSupply[] {
+  const extraPool = participantCount + poolMargin;
+
+  return LINES.map((line) => {
+    const slots = SLOT_ORDER[line].length * participantCount;
+    const have = POOL_RULES.filter((rule) => rule.line === line).reduce((total, rule) => {
+      const disponibles = players.filter(
+        (player) => player.line === line && rule.subPositions.includes(player.subPosition),
+      ).length;
+      return total + Math.min(disponibles, extraPool * rule.multiplier);
+    }, 0);
+
+    return { line, slots, have, ok: have >= slots };
+  });
+}
+
 export type QuotaEntry = {
   line: Line;
   subPositions: string[];
@@ -60,10 +100,14 @@ export type QuotaEntry = {
 
 /**
  * Cuantos jugadores hace falta tener de cada sub-rol y cuantos hay.
- * Por defecto evalua el peor caso (la cantidad maxima de participantes).
+ * Por defecto evalua el peor caso (maximo de participantes y margen default).
  */
-export function getQuotaReport(players: Player[], participantCount = MAX_PARTICIPANTS): QuotaEntry[] {
-  const extraPool = participantCount + 1;
+export function getQuotaReport(
+  players: Player[],
+  participantCount = MAX_PARTICIPANTS,
+  poolMargin = DEFAULT_POOL_MARGIN,
+): QuotaEntry[] {
+  const extraPool = participantCount + poolMargin;
 
   return POOL_RULES.map((rule) => {
     const need = extraPool * rule.multiplier;
@@ -86,23 +130,31 @@ export function createRoomCode() {
   return Math.random().toString(36).toUpperCase().slice(2, 6);
 }
 
-export const MAX_SKIP_LIMIT = 30;
+export const MAX_SKIPS_PER_ROUND = 15;
+export const MIN_POOL_MARGIN = 1;
+export const MAX_POOL_MARGIN = 5;
+export const DEFAULT_POOL_MARGIN = 2;
 
 export function sanitizeSetup(setup: SetupDraft): SetupDraft {
   const participantCount = Math.min(6, Math.max(4, Number(setup.participantCount) || 4));
   const initialBudget = Math.max(54, Number(setup.initialBudget) || 150);
   const bidIncrement = Math.max(1, Number(setup.bidIncrement) || 1);
-  const skipLimit =
-    setup.skipLimit === null
+  const skipsPerRound =
+    setup.skipsPerRound === null
       ? null
-      : Math.min(MAX_SKIP_LIMIT, Math.max(0, Math.floor(Number(setup.skipLimit) || 0)));
+      : Math.min(MAX_SKIPS_PER_ROUND, Math.max(0, Math.floor(Number(setup.skipsPerRound) || 0)));
+  const poolMargin = Math.min(
+    MAX_POOL_MARGIN,
+    Math.max(MIN_POOL_MARGIN, Math.floor(Number(setup.poolMargin) || DEFAULT_POOL_MARGIN)),
+  );
 
   return {
     ...setup,
     participantCount,
     initialBudget,
     bidIncrement,
-    skipLimit,
+    skipsPerRound,
+    poolMargin,
     roomCodeInput: setup.roomCodeInput.trim().toUpperCase(),
     names: setup.names.map((name, index) => name.trim() || `Jugador ${index + 1}`),
   };
@@ -128,12 +180,16 @@ export function buildParticipants(setup: SetupDraft): Participant[] {
   }));
 }
 
-export function buildAuction(players: Player[], participantCount: number): AuctionState {
+export function buildAuction(
+  players: Player[],
+  participantCount: number,
+  poolMargin = DEFAULT_POOL_MARGIN,
+): AuctionState {
   const lineQueues = {
-    GK: buildLineQueue(players, 'GK', participantCount),
-    DEF: buildLineQueue(players, 'DEF', participantCount),
-    MID: buildLineQueue(players, 'MID', participantCount),
-    FWD: buildLineQueue(players, 'FWD', participantCount),
+    GK: buildLineQueue(players, 'GK', participantCount, poolMargin),
+    DEF: buildLineQueue(players, 'DEF', participantCount, poolMargin),
+    MID: buildLineQueue(players, 'MID', participantCount, poolMargin),
+    FWD: buildLineQueue(players, 'FWD', participantCount, poolMargin),
   };
 
   return {
@@ -145,13 +201,13 @@ export function buildAuction(players: Player[], participantCount: number): Aucti
   };
 }
 
-/** Skips que quedan, o null si la partida no tiene tope. */
+/** Skips que quedan en la ronda actual, o null si no hay tope. */
 export function getSkipsLeft(state: GameState | GameSnapshot) {
-  if (state.setup.skipLimit === null) {
+  if (state.setup.skipsPerRound === null) {
     return null;
   }
 
-  return Math.max(0, state.setup.skipLimit - (state.auction?.skipsUsed ?? 0));
+  return Math.max(0, state.setup.skipsPerRound - (state.auction?.skipsUsed ?? 0));
 }
 
 export function getCurrentPlayer(state: GameState | GameSnapshot) {
@@ -243,7 +299,7 @@ export function getSkipBlockReason(state: GameState | GameSnapshot) {
 
   const skipsLeft = getSkipsLeft(state);
   if (skipsLeft !== null && skipsLeft <= 0) {
-    return `Se acabaron los skips (${state.setup.skipLimit} en total).`;
+    return `Sin skips en ${state.auction.currentLine} (${state.setup.skipsPerRound} por ronda). Se renuevan en la próxima línea.`;
   }
 
   const line = state.auction.currentLine;
@@ -303,8 +359,10 @@ export function advanceAuction(snapshot: GameSnapshot) {
     const nextLine = LINES.find(
       (line) => snapshot.auction && snapshot.auction.lineQueues[line].length > 0 && hasPendingSlots(line),
     );
-    if (nextLine) {
+    if (nextLine && nextLine !== snapshot.auction.currentLine) {
+      // Ronda nueva: los skips se renuevan.
       snapshot.auction.currentLine = nextLine;
+      snapshot.auction.skipsUsed = 0;
     }
   }
 
@@ -349,15 +407,25 @@ function createSlots(line: Line): TeamSlot[] {
   }));
 }
 
-function buildLineQueue(players: Player[], line: Line, participantCount: number) {
+function buildLineQueue(
+  players: Player[],
+  line: Line,
+  participantCount: number,
+  poolMargin: number,
+) {
   const linePlayers = players.filter((player) => player.line === line);
-  const selectedPlayers = getLinePoolByRole(linePlayers, line, participantCount);
+  const selectedPlayers = getLinePoolByRole(linePlayers, line, participantCount, poolMargin);
 
   return shuffle(selectedPlayers.map((player) => player.id));
 }
 
-function getLinePoolByRole(players: Player[], line: Line, participantCount: number) {
-  const extraPool = participantCount + 1;
+function getLinePoolByRole(
+  players: Player[],
+  line: Line,
+  participantCount: number,
+  poolMargin: number,
+) {
+  const extraPool = participantCount + poolMargin;
   const rules = POOL_RULES.filter((rule) => rule.line === line);
 
   if (!rules.length) {
