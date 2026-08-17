@@ -4,7 +4,9 @@ import { VALID_SUB_POSITIONS } from '../../lib/game';
 import { ACCEPTED_IMAGE_TYPES, fileToAvatarDataUrl, formatBytes } from '../../lib/image';
 import {
   createCustomPlayer,
+  exportRoster,
   getDraftError,
+  importRoster,
   getEffectivePlayers,
   getRemovalBlockReason,
   getRosterEntries,
@@ -48,6 +50,7 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
   const [photoBytes, setPhotoBytes] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   /** Aplica un cambio y muestra el motivo si el navegador no pudo guardarlo. */
   function applyChange(next: Roster) {
@@ -73,6 +76,36 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
     setDraft((current) => ({ ...current, photo: result.dataUrl }));
     setPhotoBytes(result.bytes);
     setMessage(null);
+  }
+
+  /** Baja el plantel como archivo: respaldo y forma de pasarlo a otro equipo. */
+  function handleExport() {
+    const blob = new Blob([exportRoster(roster)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `plantel-subasta-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setMessage('Plantel descargado. Guardalo: te sirve de respaldo y para pasarlo a otro dispositivo.');
+  }
+
+  async function handleImport(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    const imported = importRoster(await file.text());
+    if (!imported) {
+      setMessage('Ese archivo no es un plantel válido.');
+      return;
+    }
+
+    if (applyChange(imported)) {
+      setMessage(
+        `Plantel restaurado: ${imported.customPlayers.length} agregados y ${imported.excludedIds.length} escondidos.`,
+      );
+    }
   }
 
   function clearPhoto() {
@@ -260,8 +293,31 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
           ) : null}
           <button
             type="button"
-            onClick={() => setShowForm((open) => !open)}
+            onClick={handleExport}
+            title="Bajar el plantel como archivo"
             className="ml-auto rounded-full border border-white/15 bg-white/10 px-4 py-2 font-bold uppercase tracking-[0.2em] text-white transition hover:bg-white/15"
+          >
+            Respaldar
+          </button>
+          <button
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            title="Restaurar desde un archivo"
+            className="rounded-full border border-white/15 bg-white/10 px-4 py-2 font-bold uppercase tracking-[0.2em] text-white transition hover:bg-white/15"
+          >
+            Restaurar
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={(event) => void handleImport(event.target.files?.[0])}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => setShowForm((open) => !open)}
+            className="rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 font-bold uppercase tracking-[0.2em] text-emerald-100 transition hover:bg-emerald-300/25"
           >
             {showForm ? 'Cerrar' : '+ Agregar jugador'}
           </button>

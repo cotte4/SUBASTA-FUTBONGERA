@@ -27,8 +27,10 @@ type ReassignDraft = {
 export function App() {
   const [state, dispatch] = useReducer(gameReducer, initialGameState);
   const [reassignDraft, setReassignDraft] = useState<ReassignDraft>(null);
-  const [roster, setRoster] = useState<Roster>(loadRoster);
+  const [initialLoad] = useState(loadRoster);
+  const [roster, setRoster] = useState<Roster>(initialLoad.roster);
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [rosterNote, setRosterNote] = useState<string | null>(initialLoad.note);
 
   // Fuente unica: el plantel con el que se juega se deriva del roster guardado.
   const effectivePlayers = useMemo(() => getEffectivePlayers(roster), [roster]);
@@ -72,6 +74,19 @@ export function App() {
             </div>
           </header>
         )}
+
+        {rosterNote ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+            <span className="flex-1">{rosterNote}</span>
+            <button
+              type="button"
+              onClick={() => setRosterNote(null)}
+              className="rounded-full border border-amber-300/30 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em]"
+            >
+              Ok
+            </button>
+          </div>
+        ) : null}
 
         {state.phase === 'home' ? (
           <HomeScreen

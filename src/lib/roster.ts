@@ -50,21 +50,81 @@ export type PlayerDraft = {
 
 export const emptyRoster: Roster = { customPlayers: [], excludedIds: [] };
 
-export function loadRoster(): Roster {
+const BACKUP_KEY = `${STORAGE_KEY}-backup`;
+
+export type RosterLoad = {
+  roster: Roster;
+  /** Aviso para mostrar si algo no se pudo leer tal cual estaba guardado. */
+  note: string | null;
+};
+
+/**
+ * Lee el plantel guardado.
+ *
+ * Antes, cualquier problema de formato devolvia un plantel vacio en silencio:
+ * un cambio de estructura en una version futura habria borrado el trabajo del
+ * usuario sin que se enterara. Ahora, si el parseo estricto falla, se rescata
+ * jugador por jugador lo que siga siendo valido, se deja copia del original
+ * crudo en otra clave y se devuelve un aviso para la UI.
+ */
+export function loadRoster(): RosterLoad {
   if (typeof window === 'undefined') {
-    return emptyRoster;
+    return { roster: emptyRoster, note: null };
   }
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    return emptyRoster;
+    return { roster: emptyRoster, note: null };
   }
 
-  try {
-    return rosterSchema.parse(JSON.parse(raw));
-  } catch {
-    return emptyRoster;
+  const strict = rosterSchema.safeParse(safeJsonParse(raw));
+  if (strict.success) {
+    return { roster: strict.data, note: null };
   }
+
+  // Copia intacta de lo que habia, por si el rescate se queda corto.
+  try {
+    window.localStorage.setItem(BACKUP_KEY, raw);
+  } catch {
+    // Si no hay lugar para el backup igual seguimos con el rescate.
+  }
+
+  const parsed = safeJsonParse(raw) as Partial<Roster> | null;
+  const customPlayers = Array.isArray(parsed?.customPlayers)
+    ? parsed.customPlayers.filter((player) => playerSchema.safeParse(player).success)
+    : [];
+  const excludedIds = Array.isArray(parsed?.excludedIds)
+    ? parsed.excludedIds.filter((id): id is string => typeof id === 'string')
+    : [];
+
+  const perdidos = (Array.isArray(parsed?.customPlayers) ? parsed.customPlayers.length : 0) - customPlayers.length;
+
+  return {
+    roster: { customPlayers, excludedIds },
+    note:
+      perdidos > 0
+        ? `Se recuperó el plantel pero ${perdidos} jugador(es) agregado(s) tenían un formato viejo y quedaron afuera. Hay una copia de respaldo guardada.`
+        : 'El plantel guardado tenía un formato distinto y se recuperó lo que se pudo. Hay una copia de respaldo guardada.',
+  };
+}
+
+function safeJsonParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** Plantel serializado para bajar como archivo. */
+export function exportRoster(roster: Roster) {
+  return JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), ...roster }, null, 2);
+}
+
+/** Lee un archivo exportado. Devuelve null si no es un plantel valido. */
+export function importRoster(raw: string): Roster | null {
+  const parsed = rosterSchema.safeParse(safeJsonParse(raw));
+  return parsed.success ? parsed.data : null;
 }
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
