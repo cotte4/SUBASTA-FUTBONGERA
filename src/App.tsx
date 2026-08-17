@@ -7,7 +7,13 @@ import { HomeScreen } from './features/setup/HomeScreen';
 import { SetupScreen } from './features/setup/SetupScreen';
 import { ReassignModal } from './features/teams/ReassignModal';
 import { createRoomCode, createSnapshot } from './lib/game';
-import { getEffectivePlayers, loadRoster, saveRoster, type Roster } from './lib/roster';
+import {
+  getEffectivePlayers,
+  getRosterHealth,
+  loadRoster,
+  saveRoster,
+  type Roster,
+} from './lib/roster';
 import { listSavedRoomCodes, loadGameSnapshot, saveGameSnapshot } from './lib/storage';
 import { initialGameState } from './state/game-initial-state';
 import { gameReducer } from './state/game-reducer';
@@ -27,6 +33,21 @@ export function App() {
 
   // Fuente unica: el plantel con el que se juega se deriva del roster guardado.
   const effectivePlayers = useMemo(() => getEffectivePlayers(roster), [roster]);
+
+  // El editor no deja romper los cupos, pero el plantel guardado sobrevive a los
+  // cambios del dataset: si una version nueva saca jugadores de una linea donde
+  // el usuario ya habia escondido otros, la suma puede quedar corta. Se revisa
+  // antes de empezar, no cuando ya es tarde.
+  const rosterProblem = useMemo(() => {
+    const broken = getRosterHealth(effectivePlayers).broken;
+    if (!broken.length) {
+      return null;
+    }
+
+    return `Al plantel le faltan jugadores en ${broken
+      .map((entry) => `${entry.label} (${entry.have} de ${entry.need})`)
+      .join(', ')}. Entrá a "Editar plantel" y devolvé escondidos o agregá jugadores.`;
+  }, [effectivePlayers]);
 
   useEffect(() => {
     if (state.phase === 'auction' || state.phase === 'results') {
@@ -85,6 +106,7 @@ export function App() {
         {state.phase === 'setup' ? (
           <SetupScreen
             setup={state.setup}
+            rosterProblem={rosterProblem}
             onBack={() => {
               setReassignDraft(null);
               dispatch({ type: 'RESET_TO_HOME' });

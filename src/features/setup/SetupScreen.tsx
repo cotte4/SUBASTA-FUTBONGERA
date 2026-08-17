@@ -3,6 +3,8 @@ import type { SetupDraft } from '../../types/state';
 
 type SetupScreenProps = {
   setup: SetupDraft;
+  /** Motivo por el que el plantel guardado no alcanza para jugar, si lo hay. */
+  rosterProblem: string | null;
   onBack: () => void;
   onStart: () => void;
   onUpdate: (value: Partial<SetupDraft>) => void;
@@ -11,6 +13,7 @@ type SetupScreenProps = {
 
 export function SetupScreen({
   setup,
+  rosterProblem,
   onBack,
   onStart,
   onUpdate,
@@ -85,11 +88,17 @@ export function SetupScreen({
         <p className="mt-4 text-sm text-stone-400">
           El minimo de presupuesto es 54M porque es el piso necesario para completar un 4-3-3 en modo garantizado.
         </p>
+        {rosterProblem ? (
+          <p className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+            {rosterProblem}
+          </p>
+        ) : null}
         <div className="mt-8 flex flex-col gap-3">
           <button
             type="button"
             onClick={onStart}
-            className="inline-flex justify-center rounded-full bg-emerald-300 px-5 py-3 text-sm font-bold uppercase tracking-[0.25em] text-black transition hover:bg-emerald-200"
+            disabled={!!rosterProblem}
+            className="inline-flex justify-center rounded-full bg-emerald-300 px-5 py-3 text-sm font-bold uppercase tracking-[0.25em] text-black transition enabled:hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Comenzar subasta
           </button>
