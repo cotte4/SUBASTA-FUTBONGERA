@@ -1,4 +1,12 @@
-import { LINES, SLOT_ORDER, type Line, type Participant, type Player, type TeamSlot } from '../types/domain';
+import {
+  LINES,
+  SLOT_ORDER,
+  TEAM_LOGOS,
+  type Line,
+  type Participant,
+  type Player,
+  type TeamSlot,
+} from '../types/domain';
 import type { AuctionState, GameSnapshot, GameState, SetupDraft } from '../types/state';
 
 export const floorPriceByLine: Record<Line, number> = {
@@ -78,16 +86,23 @@ export function createRoomCode() {
   return Math.random().toString(36).toUpperCase().slice(2, 6);
 }
 
+export const MAX_SKIP_LIMIT = 30;
+
 export function sanitizeSetup(setup: SetupDraft): SetupDraft {
   const participantCount = Math.min(6, Math.max(4, Number(setup.participantCount) || 4));
   const initialBudget = Math.max(54, Number(setup.initialBudget) || 150);
   const bidIncrement = Math.max(1, Number(setup.bidIncrement) || 1);
+  const skipLimit =
+    setup.skipLimit === null
+      ? null
+      : Math.min(MAX_SKIP_LIMIT, Math.max(0, Math.floor(Number(setup.skipLimit) || 0)));
 
   return {
     ...setup,
     participantCount,
     initialBudget,
     bidIncrement,
+    skipLimit,
     roomCodeInput: setup.roomCodeInput.trim().toUpperCase(),
     names: setup.names.map((name, index) => name.trim() || `Jugador ${index + 1}`),
   };
@@ -102,6 +117,8 @@ export function buildParticipants(setup: SetupDraft): Participant[] {
     id: `participant-${index + 1}`,
     name,
     budget: setup.initialBudget,
+    teamName: '',
+    logo: TEAM_LOGOS[index % TEAM_LOGOS.length],
     team: {
       GK: createSlots('GK'),
       DEF: createSlots('DEF'),
@@ -124,7 +141,17 @@ export function buildAuction(players: Player[], participantCount: number): Aucti
     lineQueues,
     currentBid: 0,
     currentLeaderId: null,
+    skipsUsed: 0,
   };
+}
+
+/** Skips que quedan, o null si la partida no tiene tope. */
+export function getSkipsLeft(state: GameState | GameSnapshot) {
+  if (state.setup.skipLimit === null) {
+    return null;
+  }
+
+  return Math.max(0, state.setup.skipLimit - (state.auction?.skipsUsed ?? 0));
 }
 
 export function getCurrentPlayer(state: GameState | GameSnapshot) {
@@ -190,6 +217,11 @@ export function canSkipCurrentPlayer(state: GameState | GameSnapshot) {
     return false;
   }
 
+  const skipsLeft = getSkipsLeft(state);
+  if (skipsLeft !== null && skipsLeft <= 0) {
+    return false;
+  }
+
   const line = state.auction.currentLine;
   const remainingPlayers = state.auction.lineQueues[line].length;
   const pendingSlots = state.participants.reduce(
@@ -206,7 +238,12 @@ export function getSkipBlockReason(state: GameState | GameSnapshot) {
   }
 
   if (state.auction.currentLeaderId) {
-    return 'No podes skipear un jugador que ya recibio una puja.';
+    return 'Ya tiene puja. No se skipea.';
+  }
+
+  const skipsLeft = getSkipsLeft(state);
+  if (skipsLeft !== null && skipsLeft <= 0) {
+    return `Se acabaron los skips (${state.setup.skipLimit} en total).`;
   }
 
   const line = state.auction.currentLine;
@@ -217,7 +254,7 @@ export function getSkipBlockReason(state: GameState | GameSnapshot) {
   );
 
   if (remainingPlayers <= pendingSlots) {
-    return `Skip bloqueado: quedan ${remainingPlayers} jugadores para ${pendingSlots} cupos en ${line}.`;
+    return `Sin skip: ${remainingPlayers} jugadores para ${pendingSlots} cupos en ${line}.`;
   }
 
   return null;
@@ -247,6 +284,7 @@ export function createSnapshot(state: GameState): GameSnapshot {
     participants: structuredClone(state.participants),
     auction: state.auction ? structuredClone(state.auction) : null,
     pendingAssignment: state.pendingAssignment ? structuredClone(state.pendingAssignment) : null,
+    podium: [...state.podium],
   };
 }
 

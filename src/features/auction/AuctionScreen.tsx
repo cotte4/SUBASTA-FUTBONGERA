@@ -8,6 +8,7 @@ import {
   getLineProgress,
   getNextBidAmount,
   getSkipBlockReason,
+  getSkipsLeft,
 } from '../../lib/game';
 import type { Line } from '../../types/domain';
 import type { GameState } from '../../types/state';
@@ -41,6 +42,7 @@ export function AuctionScreen({
   const currentPlayer = getCurrentPlayer(state);
   const canSkip = canSkipCurrentPlayer(state);
   const skipReason = getSkipBlockReason(state);
+  const skipsLeft = getSkipsLeft(state);
   const leader = state.participants.find((participant) => participant.id === state.auction?.currentLeaderId);
   const progress = state.auction ? getLineProgress(state, state.auction.currentLine) : null;
   const minimumBid = getNextBidAmount(state);
@@ -85,28 +87,31 @@ export function AuctionScreen({
                   </div>
                   <div className="rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-right">
                     <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/75">
-                      {leader ? 'Puja actual' : 'Apertura minima'}
+                      {leader ? 'Puja' : 'Apertura'}
                     </p>
                     <p className="mt-1 text-4xl font-black text-white">{state.auction.currentBid}M</p>
-                    <p className="mt-1 text-sm text-stone-300">
-                      {leader
-                        ? `La tiene ${leader.name}`
-                        : 'Se ajusta segun el presupuesto garantizado disponible'}
-                    </p>
+                    {leader ? (
+                      <p className="mt-1 text-sm font-bold text-emerald-200">{leader.name}</p>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-3 md:grid-cols-3">
-                  <InfoCard label="Codigo" value={state.roomCode} detail="Solo reanudacion local" />
+                <div className="mt-6 grid gap-3 md:grid-cols-4">
+                  <InfoCard label="Codigo" value={state.roomCode} detail="" />
                   <InfoCard
-                    label="Linea actual"
+                    label="Linea"
                     value={state.auction.currentLine}
-                    detail={progress ? `${progress.filled}/${progress.total} slots completos` : '-'}
+                    detail={progress ? `${progress.filled}/${progress.total}` : '-'}
                   />
                   <InfoCard
                     label="Incremento"
                     value={`+${state.setup.bidIncrement}M`}
-                    detail={`${state.auction.lineQueues[state.auction.currentLine].length} jugadores vivos`}
+                    detail={`${state.auction.lineQueues[state.auction.currentLine].length} vivos`}
+                  />
+                  <InfoCard
+                    label="Skips"
+                    value={skipsLeft === null ? '∞' : `${skipsLeft}`}
+                    detail={skipsLeft === null ? 'sin tope' : `de ${state.setup.skipLimit}`}
                   />
                 </div>
 
@@ -124,15 +129,14 @@ export function AuctionScreen({
                         className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white outline-none"
                       />
                     </label>
-                    <div className="min-w-[220px] text-sm text-stone-400">
-                      <p>Minimo actual: {minimumBid}M.</p>
-                      <p>Deja ese valor para seguir con el incremento normal o cargá uno mayor para saltar varios pasos.</p>
+                    <div className="min-w-[160px] text-sm text-stone-500">
+                      Mínimo {minimumBid}M
                     </div>
                   </div>
                   {state.auction.currentBid < currentPlayer.basePrice ? (
-                    <p className="mt-3 text-sm text-amber-100/90">
-                      La apertura baja desde {currentPlayer.basePrice}M a {state.auction.currentBid}M porque nadie
-                      puede superar ese monto sin romper el modo garantizado.
+                    <p className="mt-3 text-xs text-amber-100/80">
+                      Apertura bajada de {currentPlayer.basePrice}M: nadie puede pagar más sin
+                      quedarse sin equipo.
                     </p>
                   ) : null}
                 </div>
@@ -156,12 +160,11 @@ export function AuctionScreen({
                     key={participant.id}
                     className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-left"
                   >
-                    <p className="text-xs uppercase tracking-[0.25em] text-stone-400">Pujar</p>
-                    <p className="mt-3 text-2xl font-bold text-white">{participant.name}</p>
-                    <p className="mt-2 text-sm text-stone-400">Presupuesto: {participant.budget}M</p>
-                    <p className="mt-3 text-xs text-stone-500">
-                      {enabled ? 'Puede ofertar en esta linea.' : disabledReason}
-                    </p>
+                    <p className="text-2xl font-black uppercase text-white">{participant.name}</p>
+                    <p className="mt-1 text-sm font-bold text-emerald-300">{participant.budget}M</p>
+                    {enabled ? null : (
+                      <p className="mt-2 text-xs text-stone-500">{disabledReason}</p>
+                    )}
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         type="button"
@@ -182,10 +185,8 @@ export function AuctionScreen({
                         </button>
                       ) : null}
                     </div>
-                    {hasManualBid ? (
-                      <p className="mt-3 text-xs text-stone-500">
-                        {fixedBidEnabled ? 'Oferta fija disponible.' : fixedBidReason}
-                      </p>
+                    {hasManualBid && !fixedBidEnabled ? (
+                      <p className="mt-3 text-xs text-stone-500">{fixedBidReason}</p>
                     ) : null}
                   </div>
                 );
@@ -207,7 +208,7 @@ export function AuctionScreen({
                 disabled={!canSkip || !!state.pendingAssignment}
                 className="inline-flex rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold uppercase tracking-[0.25em] text-white transition enabled:hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Skip
+                Skip {skipsLeft === null ? '' : `(${skipsLeft})`}
               </button>
               <button
                 type="button"

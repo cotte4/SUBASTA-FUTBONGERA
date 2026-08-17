@@ -34,5 +34,14 @@ export type Participant = {
   id: string;
   name: string;
   budget: number;
+  /** Identidad del club, se elige al final de la partida. */
+  teamName: string;
+  logo: string;
   team: Record<Line, TeamSlot[]>;
 };
+
+/** Logos disponibles para los clubes. */
+export const TEAM_LOGOS = [
+  '🦁', '🐺', '🦅', '🐍', '🦈', '🐂', '🐉', '🦂',
+  '👑', '💀', '⚡', '🔥', '🧿', '🎯', '🏴‍☠️', '🛸',
+] as const;

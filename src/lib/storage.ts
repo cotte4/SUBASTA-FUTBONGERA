@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TEAM_LOGOS } from '../types/domain';
 import type { GameSnapshot } from '../types/state';
 
 const STORAGE_PREFIX = 'subasta-futbolera';
@@ -11,11 +12,15 @@ const snapshotSchema = z.object({
     names: z.array(z.string()),
     initialBudget: z.number(),
     bidIncrement: z.number(),
+    // Los campos nuevos llevan default para que las partidas guardadas antes de
+    // existir sigan cargando en vez de morir en la validacion.
+    skipLimit: z.number().nullable().default(null),
     roomCodeInput: z.string(),
   }),
   players: z.record(z.string(), z.any()),
   participants: z.array(z.any()),
   auction: z.any().nullable(),
+  podium: z.array(z.string()).default([]),
   pendingAssignment: z
     .object({
       participantId: z.string(),
@@ -49,10 +54,28 @@ export function loadGameSnapshot(roomCode: string) {
   }
 
   try {
-    return snapshotSchema.parse(JSON.parse(raw)) as GameSnapshot;
+    return normalizeSnapshot(snapshotSchema.parse(JSON.parse(raw)) as GameSnapshot);
   } catch {
     return null;
   }
+}
+
+/**
+ * Rellena lo que las partidas guardadas con versiones anteriores no traen.
+ * Sin esto `skipsUsed` seria undefined y la cuenta de skips daria NaN.
+ */
+function normalizeSnapshot(snapshot: GameSnapshot): GameSnapshot {
+  return {
+    ...snapshot,
+    auction: snapshot.auction
+      ? { ...snapshot.auction, skipsUsed: snapshot.auction.skipsUsed ?? 0 }
+      : null,
+    participants: snapshot.participants.map((participant, index) => ({
+      ...participant,
+      teamName: participant.teamName ?? '',
+      logo: participant.logo || TEAM_LOGOS[index % TEAM_LOGOS.length],
+    })),
+  };
 }
 
 export function listSavedRoomCodes() {

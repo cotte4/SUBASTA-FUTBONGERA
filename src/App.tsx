@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useReducer, useState } from 'react';
-import { pricingTable } from './data/players';
 import { AuctionScreen } from './features/auction/AuctionScreen';
 import { ResultsScreen } from './features/results/ResultsScreen';
 import { RosterModal } from './features/roster/RosterModal';
@@ -63,15 +62,16 @@ export function App() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#17443b,_#081411_40%,_#040706_75%)] text-stone-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-6 py-10 lg:px-10">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm uppercase tracking-[0.35em] text-emerald-300/80">Subasta Futbolera</p>
-            <h1 className="mt-2 text-2xl font-black uppercase sm:text-3xl">Single-screen fantasy auction</h1>
-          </div>
-          <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-stone-300">
-            {Object.keys(pricingTable).length} lineas - {effectivePlayers.length} jugadores
-          </div>
-        </header>
+        {state.phase === 'home' ? null : (
+          <header className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm font-black uppercase tracking-[0.35em] text-emerald-300">
+              Subasta Futbolera
+            </p>
+            <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-stone-400">
+              {effectivePlayers.length} jugadores
+            </div>
+          </header>
+        )}
 
         {state.phase === 'home' ? (
           <HomeScreen
@@ -164,6 +164,10 @@ export function App() {
               dispatch({ type: 'RESET_TO_HOME' });
             }}
             onPickTeamSlot={(payload) => setReassignDraft(payload)}
+            onSetIdentity={(payload) => dispatch({ type: 'SET_TEAM_IDENTITY', payload })}
+            onSetPodium={(position, participantId) =>
+              dispatch({ type: 'SET_PODIUM_SLOT', payload: { position, participantId } })
+            }
           />
         ) : null}
       </div>

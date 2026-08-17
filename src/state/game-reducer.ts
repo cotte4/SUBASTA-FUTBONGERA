@@ -40,6 +40,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         participants: buildParticipants(setup),
         auction: buildAuction(action.payload.players, setup.participantCount),
         pendingAssignment: null,
+        podium: [],
         lastUndoState: null,
         savedAt: null,
         errorMessage: null,
@@ -81,7 +82,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       const snapshot = createSnapshot(state);
-      snapshot.auction?.lineQueues[snapshot.auction.currentLine].shift();
+      if (snapshot.auction) {
+        snapshot.auction.lineQueues[snapshot.auction.currentLine].shift();
+        snapshot.auction.skipsUsed += 1;
+      }
       advanceAuction(snapshot);
 
       return {
@@ -199,6 +203,49 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
         lastUndoState: createSnapshot(state),
         savedAt: null,
         errorMessage: null,
+      };
+    }
+    case 'SET_TEAM_IDENTITY': {
+      const snapshot = createSnapshot(state);
+      const participant = snapshot.participants.find(
+        (entry) => entry.id === action.payload.participantId,
+      );
+
+      if (!participant) {
+        return state;
+      }
+
+      if (action.payload.teamName !== undefined) {
+        participant.teamName = action.payload.teamName.slice(0, 24);
+      }
+      if (action.payload.logo !== undefined) {
+        participant.logo = action.payload.logo;
+      }
+
+      return { ...state, participants: snapshot.participants, savedAt: null };
+    }
+    case 'SET_PODIUM_SLOT': {
+      const { position, participantId } = action.payload;
+      if (position < 0 || position > 2) {
+        return state;
+      }
+
+      // Un participante ocupa un solo escalon: si ya estaba en otro, se muda.
+      const podium = [...state.podium];
+      while (podium.length < 3) {
+        podium.push('');
+      }
+
+      const previous = podium.indexOf(participantId ?? '');
+      if (participantId && previous !== -1) {
+        podium[previous] = podium[position];
+      }
+      podium[position] = participantId ?? '';
+
+      return {
+        ...state,
+        podium: podium.map((entry) => entry ?? ''),
+        savedAt: null,
       };
     }
     case 'UNDO_LAST_ACTION':

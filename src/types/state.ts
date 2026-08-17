@@ -7,6 +7,8 @@ export type SetupDraft = {
   names: string[];
   initialBudget: number;
   bidIncrement: number;
+  /** Skips que tiene la partida entera. null = sin limite. */
+  skipLimit: number | null;
   roomCodeInput: string;
 };
 
@@ -15,6 +17,7 @@ export type AuctionState = {
   lineQueues: Record<Line, string[]>;
   currentBid: number;
   currentLeaderId: string | null;
+  skipsUsed: number;
 };
 
 export type PendingAssignment = {
@@ -32,6 +35,8 @@ export type GameSnapshot = {
   participants: Participant[];
   auction: AuctionState | null;
   pendingAssignment: PendingAssignment | null;
+  /** Ids de participantes en orden 1o, 2o, 3o. Lo arma el game master. */
+  podium: string[];
 };
 
 export type GameState = GameSnapshot & {
@@ -61,5 +66,10 @@ export type GameAction =
         toSlot: string;
       };
     }
+  | {
+      type: 'SET_TEAM_IDENTITY';
+      payload: { participantId: string; teamName?: string; logo?: string };
+    }
+  | { type: 'SET_PODIUM_SLOT'; payload: { position: number; participantId: string | null } }
   | { type: 'UNDO_LAST_ACTION' }
   | { type: 'RESET_TO_HOME' };
