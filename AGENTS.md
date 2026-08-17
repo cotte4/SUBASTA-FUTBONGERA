@@ -26,6 +26,12 @@
 - La asignacion de slots es flexible por linea: `DEF`, `MID` y `FWD` pueden ir a cualquier slot de su linea.
 - El MVP usa `localStorage` y un codigo de reanudacion local; no hay multi-device real.
 
+## Editor de plantel (UI)
+- Boton "Editar plantel" en el home. Guarda en localStorage por dispositivo (`subasta-futbolera:roster`), no se comparte entre celulares.
+- El dataset base nunca se modifica: se guardan los agregados y los ids escondidos, y el plantel efectivo se deriva de ahi (`getEffectivePlayers`).
+- Esconder esta bloqueado si dejaria un sub-rol por debajo del cupo (`getRemovalBlockReason`). Esos jugadores se muestran como "Fijo".
+- `npm run simulate 400 -- --minimal` juega con el plantel recortado al cupo minimo: el peor caso despues de esconder jugadores.
+
 ## Seed de jugadores
 - La fuente de verdad es `src/data/players.ts`. `src/data/players.json` esta muerto: nadie lo importa.
 - `subPosition` esta tipado como `string`: un typo compila igual y deja al jugador fuera del pool sin error. Validas: GK / LB,CB,RB / CM,CDM,CAM / LW,ST,RW.

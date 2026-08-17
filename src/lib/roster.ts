@@ -85,6 +85,64 @@ export function isCustomPlayer(player: Player) {
   return player.id.startsWith(CUSTOM_ID_PREFIX);
 }
 
+export type RosterEntry = {
+  player: Player;
+  hidden: boolean;
+  custom: boolean;
+};
+
+/**
+ * Todos los jugadores para la vista del editor, incluidos los ocultos.
+ * `getEffectivePlayers` devuelve con los que se juega; esta devuelve tambien
+ * los escondidos, para poder verlos y traerlos de vuelta.
+ */
+export function getRosterEntries(roster: Roster): RosterEntry[] {
+  const excluded = new Set(roster.excludedIds);
+
+  return [
+    ...allPlayers.map((player) => ({
+      player,
+      hidden: excluded.has(player.id),
+      custom: false,
+    })),
+    ...roster.customPlayers.map((player) => ({ player, hidden: false, custom: true })),
+  ];
+}
+
+/** Esconde o recupera un jugador del dataset base. */
+export function togglePlayerHidden(roster: Roster, playerId: string): Roster {
+  return roster.excludedIds.includes(playerId)
+    ? { ...roster, excludedIds: roster.excludedIds.filter((id) => id !== playerId) }
+    : { ...roster, excludedIds: [...roster.excludedIds, playerId] };
+}
+
+/** Borra un jugador agregado a mano (los del dataset base solo se esconden). */
+export function removeCustomPlayer(roster: Roster, playerId: string): Roster {
+  return { ...roster, customPlayers: roster.customPlayers.filter((p) => p.id !== playerId) };
+}
+
+/** Devuelve al plantel a todos los escondidos. */
+export function restoreAllHidden(roster: Roster): Roster {
+  return { ...roster, excludedIds: [] };
+}
+
+/** Esconde varios de una, salteando los que romperian un cupo. */
+export function hideMany(roster: Roster, playerIds: string[]) {
+  let next = roster;
+  const blocked: string[] = [];
+
+  for (const id of playerIds) {
+    const players = getEffectivePlayers(next);
+    if (getRemovalBlockReason(players, id)) {
+      blocked.push(id);
+      continue;
+    }
+    next = { ...next, excludedIds: [...next.excludedIds, id] };
+  }
+
+  return { roster: next, blocked };
+}
+
 /**
  * Arma un Player completo desde el formulario, derivando lo mismo que deriva
  * el dataset: el precio sale de la tabla, nunca se escribe a mano.

@@ -13,7 +13,9 @@ import {
   getCurrentPlayer,
   getNextBidAmount,
   getOpenSlots,
+  POOL_RULES,
 } from '../src/lib/game';
+import type { Player } from '../src/types/domain';
 import { initialGameState } from '../src/state/game-initial-state';
 import { gameReducer } from '../src/state/game-reducer';
 import { LINES } from '../src/types/domain';
@@ -21,6 +23,23 @@ import type { GameAction, GameState } from '../src/types/state';
 
 const RUNS = Number(process.argv[2]) || 200;
 const MAX_STEPS = 5000;
+
+/**
+ * Con --minimal se juega con el plantel mas chico que el editor permite dejar:
+ * exactamente el cupo de cada sub-rol, sin un jugador de sobra. Es el peor caso
+ * despues de esconder jugadores desde la UI.
+ */
+const MINIMAL = process.argv.includes('--minimal');
+
+function trimToQuota(players: Player[], participantCount: number): Player[] {
+  const extraPool = participantCount + 1;
+
+  return POOL_RULES.flatMap((rule) =>
+    players
+      .filter((player) => player.line === rule.line && rule.subPositions.includes(player.subPosition))
+      .slice(0, extraPool * rule.multiplier),
+  );
+}
 
 type Failure = { run: number; reason: string; detail: string };
 const failures: Failure[] = [];
@@ -35,9 +54,10 @@ for (let run = 1; run <= RUNS; run += 1) {
     type: 'UPDATE_SETUP',
     payload: { participantCount, initialBudget, bidIncrement },
   });
+  const pool = MINIMAL ? trimToQuota(allPlayers, participantCount) : allPlayers;
   state = apply(state, {
     type: 'START_GAME',
-    payload: { roomCode: createRoomCode(), players: allPlayers },
+    payload: { roomCode: createRoomCode(), players: pool },
   });
 
   let steps = 0;
@@ -167,7 +187,9 @@ function describe(state: GameState) {
   return `fase=${state.phase} linea=${state.auction?.currentLine} jugador=${player?.name ?? '-'} puja=${state.auction?.currentBid} | ${teams}`;
 }
 
-console.log(`\nSimuladas ${RUNS} partidas completas.`);
+console.log(
+  `\nSimuladas ${RUNS} partidas completas${MINIMAL ? ' con el plantel recortado al cupo minimo' : ''}.`,
+);
 if (!failures.length) {
   console.log('OK — ninguna violacion del modo garantizado.\n');
   process.exit(0);
