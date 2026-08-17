@@ -150,8 +150,15 @@ export function App() {
         <RosterModal
           roster={roster}
           onChange={(next) => {
+            // Si el navegador no puede guardarlo, el cambio no se aplica y el
+            // modal muestra el motivo: mejor eso que perderlo al recargar.
+            const result = saveRoster(next);
+            if (!result.ok) {
+              return result.error;
+            }
+
             setRoster(next);
-            saveRoster(next);
+            return null;
           }}
           onClose={() => setRosterOpen(false)}
         />

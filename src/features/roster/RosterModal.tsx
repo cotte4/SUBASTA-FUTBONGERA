@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 import { VALID_SUB_POSITIONS } from '../../lib/game';
+import { ACCEPTED_IMAGE_TYPES, fileToAvatarDataUrl, formatBytes } from '../../lib/image';
 import {
   createCustomPlayer,
   getDraftError,
@@ -19,7 +20,8 @@ import { LINES, type Line, type Tier } from '../../types/domain';
 
 type RosterModalProps = {
   roster: Roster;
-  onChange: (roster: Roster) => void;
+  /** Devuelve un mensaje de error si el navegador no pudo guardar el cambio. */
+  onChange: (roster: Roster) => string | null;
   onClose: () => void;
 };
 
@@ -43,6 +45,43 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
   const [countryFilter, setCountryFilter] = useState('TODOS');
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [photoBytes, setPhotoBytes] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Aplica un cambio y muestra el motivo si el navegador no pudo guardarlo. */
+  function applyChange(next: Roster) {
+    const error = onChange(next);
+    setMessage(error);
+    return !error;
+  }
+
+  async function handleFile(file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    setUploading(true);
+    const result = await fileToAvatarDataUrl(file);
+    setUploading(false);
+
+    if (!result.ok) {
+      setMessage(result.error);
+      return;
+    }
+
+    setDraft((current) => ({ ...current, photo: result.dataUrl }));
+    setPhotoBytes(result.bytes);
+    setMessage(null);
+  }
+
+  function clearPhoto() {
+    setDraft((current) => ({ ...current, photo: '' }));
+    setPhotoBytes(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
 
   // Todo se DERIVA del roster guardado: no hay una segunda lista que mantener.
   const entries = useMemo(() => getRosterEntries(roster), [roster]);
@@ -72,8 +111,7 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
 
   function handleToggle(playerId: string, hidden: boolean, custom: boolean) {
     if (custom) {
-      onChange(removeCustomPlayer(roster, playerId));
-      setMessage(null);
+      applyChange(removeCustomPlayer(roster, playerId));
       return;
     }
 
@@ -85,8 +123,7 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
       }
     }
 
-    onChange(togglePlayerHidden(roster, playerId));
-    setMessage(null);
+    applyChange(togglePlayerHidden(roster, playerId));
   }
 
   function handleHideAllVisible() {
@@ -95,12 +132,11 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
       visibleActivos.filter((entry) => !entry.custom).map((entry) => entry.player.id),
     );
 
-    onChange(next);
-    setMessage(
-      blocked.length
-        ? `Escondí los que pude. Quedaron ${blocked.length} porque sin ellos no alcanzarían los cupos.`
-        : null,
-    );
+    if (applyChange(next) && blocked.length) {
+      setMessage(
+        `Escondí los que pude. Quedaron ${blocked.length} porque sin ellos no alcanzarían los cupos.`,
+      );
+    }
   }
 
   function handleAdd() {
@@ -110,12 +146,19 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
       return;
     }
 
-    onChange({ ...roster, customPlayers: [...roster.customPlayers, createCustomPlayer(draft, players)] });
+    const saved = applyChange({
+      ...roster,
+      customPlayers: [...roster.customPlayers, createCustomPlayer(draft, players)],
+    });
+    if (!saved) {
+      return;
+    }
+
     setDraft({ ...emptyDraft, line: draft.line, subPosition: draft.subPosition, tier: draft.tier });
+    clearPhoto();
     setLineFilter(draft.line);
     setCountryFilter('TODOS');
     setSearch('');
-    setMessage(null);
   }
 
   return (
@@ -209,10 +252,7 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
           {hiddenCount ? (
             <button
               type="button"
-              onClick={() => {
-                onChange(restoreAllHidden(roster));
-                setMessage(null);
-              }}
+              onClick={() => applyChange(restoreAllHidden(roster))}
               className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 font-bold uppercase tracking-[0.2em] text-emerald-100 transition hover:bg-emerald-300/20"
             >
               Devolver los {hiddenCount} escondidos
@@ -289,15 +329,59 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
                   ))}
                 </select>
               </Field>
-              <Field label="Foto (URL, opcional)">
-                <input
-                  value={draft.photo}
-                  onChange={(event) => setDraft({ ...draft, photo: event.target.value })}
-                  placeholder="https://..."
-                  className={inputClass}
-                />
-              </Field>
             </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-[auto_1fr]">
+              <PlayerAvatar
+                name={draft.name || '?'}
+                photo={draft.photo}
+                className="h-24 w-24 shrink-0"
+              />
+              <div>
+                <span className="text-xs uppercase tracking-[0.25em] text-stone-400">Foto</span>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white transition enabled:hover:bg-white/15 disabled:opacity-50"
+                  >
+                    {uploading ? 'Procesando...' : 'Subir del dispositivo'}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept={ACCEPTED_IMAGE_TYPES}
+                    onChange={(event) => void handleFile(event.target.files?.[0])}
+                    className="hidden"
+                  />
+                  {draft.photo ? (
+                    <button
+                      type="button"
+                      onClick={clearPhoto}
+                      className="rounded-full border border-rose-300/20 bg-rose-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-rose-100 transition hover:bg-rose-300/20"
+                    >
+                      Quitar
+                    </button>
+                  ) : null}
+                  {photoBytes ? (
+                    <span className="text-xs text-stone-500">
+                      {formatBytes(photoBytes)} despues de comprimir
+                    </span>
+                  ) : null}
+                </div>
+                <input
+                  value={draft.photo.startsWith('data:') ? '' : draft.photo}
+                  onChange={(event) => {
+                    setDraft({ ...draft, photo: event.target.value });
+                    setPhotoBytes(null);
+                  }}
+                  placeholder="...o pegá una URL: https://..."
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white outline-none placeholder:text-stone-500 focus:border-emerald-300/40"
+                />
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={handleAdd}
@@ -306,7 +390,8 @@ export function RosterModal({ roster, onChange, onClose }: RosterModalProps) {
               Agregar al plantel
             </button>
             <p className="mt-3 text-xs text-stone-500">
-              Sin foto se muestran las iniciales. El precio sale del tier.
+              Las fotos subidas se achican a 320px y se guardan en este navegador. Sin foto se
+              muestran las iniciales. El precio sale del tier.
             </p>
           </section>
         ) : null}

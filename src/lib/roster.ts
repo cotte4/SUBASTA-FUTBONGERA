@@ -67,12 +67,28 @@ export function loadRoster(): Roster {
   }
 }
 
-export function saveRoster(roster: Roster) {
+export type SaveResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Guardar puede fallar de verdad: las fotos subidas viven como data URL dentro
+ * de localStorage, que tiene ~5MB para todo el origen. Si no entra hay que
+ * avisar y no aplicar el cambio, en vez de perderlo en silencio.
+ */
+export function saveRoster(roster: Roster): SaveResult {
   if (typeof window === 'undefined') {
-    return;
+    return { ok: true };
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(roster));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(roster));
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      error:
+        'No entra en el almacenamiento del navegador. Suele ser por fotos subidas: borrá algún jugador con foto, usá URLs en vez de archivos, o limpiá partidas guardadas.',
+    };
+  }
 }
 
 /** El plantel con el que se juega: base sin los ocultos, mas los agregados. */
@@ -191,8 +207,9 @@ export function getDraftError(draft: PlayerDraft): string | null {
     return `Para ${draft.line} la posición tiene que ser ${VALID_SUB_POSITIONS[draft.line].join(', ')}.`;
   }
 
-  if (draft.photo.trim() && !/^(https?:\/\/|\/)/.test(draft.photo.trim())) {
-    return 'La foto tiene que ser una URL (https://...) o una ruta local (/players/...).';
+  // data: son las fotos subidas desde el dispositivo, ya comprimidas.
+  if (draft.photo.trim() && !/^(https?:\/\/|data:image\/|\/)/.test(draft.photo.trim())) {
+    return 'La foto tiene que ser una URL (https://...), un archivo subido, o una ruta local (/players/...).';
   }
 
   return null;
